@@ -1,8 +1,8 @@
-
-@echo off
-cd /d "%~dp0"
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0compare_all.ps1"
-
-echo.
-pause
+# 指定されたパスの存在を確認する
+# 存在しない場合は警告を出してスキップする
+if (Test-Path -LiteralPath $literalPath) {
+    $pathsToProcess += (Resolve-Path -LiteralPath $literalPath).Path
+}
+else {
+    Write-Warning "パスが見つかりません: $literalPath"
+}
