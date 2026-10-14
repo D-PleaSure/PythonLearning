@@ -1,24 +1,18 @@
 
-# ファイル内容の一致確認
-# 長いパスではGet-FileHashを使用しない
+# 3種類の差分件数を確認する
+# すべて0の場合は集計対象から除外する
+# いずれかが1以上の場合のみ出力する
 
-$skipFile = $false
+if ($deleted -ne 0 -or
+    $added -ne 0 -or
+    $changed -ne 0) {
 
-if ($lp.Length -lt 240 -and $rp.Length -lt 240) {
-
-    $hashL = (Get-FileHash -LiteralPath $lp -Algorithm SHA256).Hash
-    $hashR = (Get-FileHash -LiteralPath $rp -Algorithm SHA256).Hash
-
-    if ($hashL -eq $hashR) {
-        $skipFile = $true
-    }
-}
-else {
-    # 長いパスはハッシュ判定を省略し、
-    # Beyond Compareの比較対象に含める
-    Write-Host "長いパスのためハッシュ判定を省略: $rel"
-}
-
-if ($skipFile) {
-    continue
+    $summary.Add([pscustomobject][ordered]@{
+        LeftFile  = $item.Left
+        RightFile = $item.Right
+        LeftOnly  = $deleted
+        RightOnly = $added
+        Different = $changed
+        Status    = 'OK'
+    })
 }
