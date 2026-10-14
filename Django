@@ -1,0 +1,73 @@
+
+# ===== 6. Beyond Compare実行 =====
+# ファイルごとに個別実行する。
+# 失敗したファイルは記録し、次のファイルへ進む。
+
+$BcErrors = New-Object 'System.Collections.Generic.List[object]'
+$SuccessCount = 0
+
+$TotalCount = $manifest.Count
+
+for ($i = 0; $i -lt $TotalCount; $i++) {
+
+    $item = $manifest[$i]
+
+    Write-Progress `
+        -Activity 'Beyond Compare 差分集計中' `
+        -Status "$($i + 1) / $TotalCount : $($item.File)" `
+        -PercentComplete (100 * ($i + 1) / $TotalCount)
+
+    # 元のfile-reportコマンドを取得する
+    $command = $commands[$i + 1]
+
+    # 一時スクリプトを作成する
+    $singleScript = Join-Path $WorkDir 'compare_single.txt'
+
+    @(
+        'criteria rules-based'
+        $command
+    ) | Set-Content -LiteralPath $singleScript -Encoding Default
+
+    # 前回のレポートが残っていれば削除する
+    if (Test-Path -LiteralPath $item.Report) {
+        Remove-Item -LiteralPath $item.Report -Force
+    }
+
+    # Beyond Compareを実行する
+    try {
+        & $BCompare "@$singleScript" | Out-Null
+
+        if (Test-Path -LiteralPath $item.Report) {
+            if ((Get-Item -LiteralPath $item.Report).Length -gt 0) {
+                $SuccessCount++
+            }
+            else {
+                throw 'レポートが空です'
+            }
+        }
+        else {
+            throw 'レポートが作成されませんでした'
+        }
+    }
+    catch {
+        $BcErrors.Add([pscustomobject]@{
+            File = $item.File
+            Reason = $_.Exception.Message
+        })
+    }
+}
+
+Write-Progress -Activity 'Beyond Compare 差分集計中' -Completed
+
+Write-Host "成功件数: $SuccessCount"
+Write-Host "実行エラー件数: $($BcErrors.Count)"
+
+
+
+
+
+# Beyond Compare実行時のエラーを集計結果に追加する
+foreach ($e in $BcErrors) {
+    $errors.Add($e)
+}
+
