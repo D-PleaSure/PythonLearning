@@ -1,4 +1,15 @@
-# 比較対象フォルダーのパスを設定する
-# Resolve-Pathを使用せず、長いパスへの影響を減らす
+# ===== 準備 =====
+# 比較元・比較先のフォルダーパスを確認する
+
 $LeftRoot = $LeftRoot.TrimEnd('\')
 $RightRoot = $RightRoot.TrimEnd('\')
+
+if ([string]::IsNullOrWhiteSpace($LeftRoot) -or
+    -not (Test-Path -LiteralPath $LeftRoot -PathType Container)) {
+    throw "比較元フォルダーが見つかりません: $LeftRoot"
+}
+
+if ([string]::IsNullOrWhiteSpace($RightRoot) -or
+    -not (Test-Path -LiteralPath $RightRoot -PathType Container)) {
+    throw "比較先フォルダーが見つかりません: $RightRoot"
+}
