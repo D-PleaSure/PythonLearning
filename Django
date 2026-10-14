@@ -1,15 +1,1 @@
-# ===== 準備 =====
-# 比較元・比較先のフォルダーパスを確認する
-
-$LeftRoot = $LeftRoot.TrimEnd('\')
-$RightRoot = $RightRoot.TrimEnd('\')
-
-if ([string]::IsNullOrWhiteSpace($LeftRoot) -or
-    -not (Test-Path -LiteralPath $LeftRoot -PathType Container)) {
-    throw "比較元フォルダーが見つかりません: $LeftRoot"
-}
-
-if ([string]::IsNullOrWhiteSpace($RightRoot) -or
-    -not (Test-Path -LiteralPath $RightRoot -PathType Container)) {
-    throw "比較先フォルダーが見つかりません: $RightRoot"
-}
+$ps1 = 'D:\TOOL\Beyond Compare 3\Reports\compare_all.ps1'; $lines = Get-Content -LiteralPath $ps1; 103..110 | ForEach-Object { '{0}: {1}' -f $_, $lines[$_ - 1] }
