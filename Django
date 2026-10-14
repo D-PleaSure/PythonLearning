@@ -1,3 +1,4 @@
-Get-ChildItem 'D:\TOOL\Beyond Compare 3\Reports' -Recurse -Include *.ps1,*.bat -File |
-Select-String -Pattern 'pathsToProcess','literalPath' |
-Select-Object Path,LineNumber,Line
+# 実行中のスクリプト情報を表示する
+Write-Host "実行ファイル: $PSCommandPath"
+Write-Host "更新日時: $((Get-Item -LiteralPath $PSCommandPath).LastWriteTime)"
+Write-Host "SHA256: $((Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash)"
