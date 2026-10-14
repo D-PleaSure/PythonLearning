@@ -1,1 +1,3 @@
-$ps1 = 'D:\TOOL\Beyond Compare 3\Reports\compare_all.ps1'; $lines = Get-Content -LiteralPath $ps1; 103..110 | ForEach-Object { '{0}: {1}' -f $_, $lines[$_ - 1] }
+Get-ChildItem 'D:\TOOL\Beyond Compare 3\Reports' -Recurse -Include *.ps1,*.bat -File |
+Select-String -Pattern 'pathsToProcess','literalPath' |
+Select-Object Path,LineNumber,Line
