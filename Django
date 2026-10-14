@@ -1,4 +1,24 @@
-# 実行中のスクリプト情報を表示する
-Write-Host "実行ファイル: $PSCommandPath"
-Write-Host "更新日時: $((Get-Item -LiteralPath $PSCommandPath).LastWriteTime)"
-Write-Host "SHA256: $((Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash)"
+
+# ファイル内容の一致確認
+# 長いパスではGet-FileHashを使用しない
+
+$skipFile = $false
+
+if ($lp.Length -lt 240 -and $rp.Length -lt 240) {
+
+    $hashL = (Get-FileHash -LiteralPath $lp -Algorithm SHA256).Hash
+    $hashR = (Get-FileHash -LiteralPath $rp -Algorithm SHA256).Hash
+
+    if ($hashL -eq $hashR) {
+        $skipFile = $true
+    }
+}
+else {
+    # 長いパスはハッシュ判定を省略し、
+    # Beyond Compareの比較対象に含める
+    Write-Host "長いパスのためハッシュ判定を省略: $rel"
+}
+
+if ($skipFile) {
+    continue
+}
