@@ -1,73 +1,101 @@
 
-# ===== 6. Beyond Compare実行 =====
-# ファイルごとに個別実行する。
-# 失敗したファイルは記録し、次のファイルへ進む。
+# Beyond Compare 統計CSV集約ツール
+# 既存の個別レポートから3種類の差分件数を抽出する
+# Beyond Compareの再実行は不要
 
-$BcErrors = New-Object 'System.Collections.Generic.List[object]'
-$SuccessCount = 0
+$WorkDir = 'D:\TOOL\Beyond Compare 3\Reports'
+$ReportDir = Join-Path $WorkDir 'detail_reports'
+$OutputFile = Join-Path $WorkDir 'summary_result.csv'
+$ErrorFile = Join-Path $WorkDir 'summary_parse_errors.csv'
 
-$TotalCount = $manifest.Count
+$ErrorActionPreference = 'Stop'
 
-for ($i = 0; $i -lt $TotalCount; $i++) {
+# 個別レポートを取得する
+$files = @(
+    Get-ChildItem -LiteralPath $ReportDir `
+        -Filter 'report_*.csv' -File |
+    Sort-Object Name
+)
 
-    $item = $manifest[$i]
+$results = New-Object 'System.Collections.Generic.List[object]'
+$errors = New-Object 'System.Collections.Generic.List[object]'
 
-    Write-Progress `
-        -Activity 'Beyond Compare 差分集計中' `
-        -Status "$($i + 1) / $TotalCount : $($item.File)" `
-        -PercentComplete (100 * ($i + 1) / $TotalCount)
-
-    # 元のfile-reportコマンドを取得する
-    $command = $commands[$i + 1]
-
-    # 一時スクリプトを作成する
-    $singleScript = Join-Path $WorkDir 'compare_single.txt'
-
-    @(
-        'criteria rules-based'
-        $command
-    ) | Set-Content -LiteralPath $singleScript -Encoding Default
-
-    # 前回のレポートが残っていれば削除する
-    if (Test-Path -LiteralPath $item.Report) {
-        Remove-Item -LiteralPath $item.Report -Force
-    }
-
-    # Beyond Compareを実行する
+foreach ($file in $files) {
     try {
-        & $BCompare "@$singleScript" | Out-Null
+        # 先頭2行はレポート情報のため除外する
+        # 3行目からCSVとして読み込む
+        $lines = @(
+            Get-Content -LiteralPath $file.FullName `
+                -Encoding UTF8 |
+            Select-Object -Skip 2
+        )
 
-        if (Test-Path -LiteralPath $item.Report) {
-            if ((Get-Item -LiteralPath $item.Report).Length -gt 0) {
-                $SuccessCount++
-            }
-            else {
-                throw 'レポートが空です'
-            }
+        if ($lines.Count -lt 2) {
+            throw 'CSVデータが不足しています'
         }
-        else {
-            throw 'レポートが作成されませんでした'
+
+        $rows = @($lines | ConvertFrom-Csv)
+
+        foreach ($row in $rows) {
+            # 必要な列が存在するか確認する
+            foreach ($name in @(
+                'SourceFile','CompareFile',
+                'IDeleted','IAdded','IChanged'
+            )) {
+                if ($row.PSObject.Properties.Name -notcontains $name) {
+                    throw "必要な列がありません: $name"
+                }
+            }
+
+            # 数値変換に失敗した場合はエラーとして記録
+            $deleted = 0
+            $added = 0
+            $changed = 0
+
+            if (-not [int]::TryParse($row.IDeleted, [ref]$deleted) -or
+                -not [int]::TryParse($row.IAdded, [ref]$added) -or
+                -not [int]::TryParse($row.IChanged, [ref]$changed)) {
+                throw '差分件数が数値ではありません'
+            }
+
+            # 差分件数がすべて0の場合は出力しない
+            if (($deleted + $added + $changed) -eq 0) {
+                continue
+            }
+
+            # 指定した6列で集計する
+            $results.Add([pscustomobject][ordered]@{
+                LeftFile = $row.SourceFile
+                RightFile = $row.CompareFile
+                LeftOnly = $deleted
+                RightOnly = $added
+                Different = $changed
+                Status = 'OK'
+            })
         }
     }
     catch {
-        $BcErrors.Add([pscustomobject]@{
-            File = $item.File
+        $errors.Add([pscustomobject]@{
+            Report = $file.Name
             Reason = $_.Exception.Message
         })
     }
 }
 
-Write-Progress -Activity 'Beyond Compare 差分集計中' -Completed
-
-Write-Host "成功件数: $SuccessCount"
-Write-Host "実行エラー件数: $($BcErrors.Count)"
-
-
-
-
-
-# Beyond Compare実行時のエラーを集計結果に追加する
-foreach ($e in $BcErrors) {
-    $errors.Add($e)
+# Excelで開けるCSVを出力する
+if ($results.Count -gt 0) {
+    $results | Export-Csv -LiteralPath $OutputFile `
+        -NoTypeInformation -Encoding UTF8
 }
 
+# 読み込みに失敗したレポートを記録する
+if ($errors.Count -gt 0) {
+    $errors | Export-Csv -LiteralPath $ErrorFile `
+        -NoTypeInformation -Encoding UTF8
+}
+
+Write-Host '===== 集計結果 ====='
+Write-Host "レポート数: $($files.Count)"
+Write-Host "差分ファイル数: $($results.Count)"
+Write-Host "解析エラー数: $($errors.Count)"
+Write-Host "出力先: $OutputFile"
