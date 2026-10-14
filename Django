@@ -1,8 +1,4 @@
-# 指定されたパスの存在を確認する
-# 存在しない場合は警告を出してスキップする
-if (Test-Path -LiteralPath $literalPath) {
-    $pathsToProcess += (Resolve-Path -LiteralPath $literalPath).Path
-}
-else {
-    Write-Warning "パスが見つかりません: $literalPath"
-}
+# 比較対象フォルダーのパスを設定する
+# Resolve-Pathを使用せず、長いパスへの影響を減らす
+$LeftRoot = $LeftRoot.TrimEnd('\')
+$RightRoot = $RightRoot.TrimEnd('\')
