@@ -1,18 +1,14 @@
 
-# 3種類の差分件数を確認する
-# すべて0の場合は集計対象から除外する
-# いずれかが1以上の場合のみ出力する
+# ファイル名のみを取得する（フォルダーパスは除外）
+$fileName = [System.IO.Path]::GetFileName($item.Right)
 
-if ($deleted -ne 0 -or
-    $added -ne 0 -or
-    $changed -ne 0) {
-
-    $summary.Add([pscustomobject][ordered]@{
-        LeftFile  = $item.Left
-        RightFile = $item.Right
-        LeftOnly  = $deleted
-        RightOnly = $added
-        Different = $changed
-        Status    = 'OK'
-    })
-}
+# 集計結果にファイル名列を追加する
+$summary.Add([pscustomobject][ordered]@{
+    LeftFile  = $item.Left
+    RightFile = $item.Right
+    FileName  = $fileName
+    LeftOnly  = $deleted
+    RightOnly = $added
+    Different = $changed
+    Status    = 'OK'
+})
