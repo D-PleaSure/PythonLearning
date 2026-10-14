@@ -1,101 +1,361 @@
 
-# Beyond Compare 統計CSV集約ツール
-# 既存の個別レポートから3種類の差分件数を抽出する
-# Beyond Compareの再実行は不要
+# Beyond Compare 3 - 差分統計一括処理
+# Windows PowerShell 5.1 / UTF-8 BOM で保存
 
-$WorkDir = 'D:\TOOL\Beyond Compare 3\Reports'
-$ReportDir = Join-Path $WorkDir 'detail_reports'
-$OutputFile = Join-Path $WorkDir 'summary_result.csv'
-$ErrorFile = Join-Path $WorkDir 'summary_parse_errors.csv'
+# ===== 設定 =====
+$LeftRoot  = 'D:\LEFT_FOLDER'
+$RightRoot = 'D:\RIGHT_FOLDER'
+$BCompare  = 'D:\TOOL\Beyond Compare 3\BCompare.exe'
+$WorkDir   = 'D:\TOOL\Beyond Compare 3\Reports'
+
+# 対象外ディレクトリ（必要に応じて変更）
+$ExcludeDirs = @('node_modules', '.git')
+
+# EUC-JPで読み込む例外ファイル（相対パスで厳密に指定）
+$EucRelativePath = 'APLMQ\src\srv\c\SLC\src\rsslc_main.cp'
 
 $ErrorActionPreference = 'Stop'
+$DetailDir   = Join-Path $WorkDir 'detail_reports'
+$TempDir     = Join-Path $WorkDir 'bc_utf8_temp'
+$ScriptFile  = Join-Path $WorkDir 'compare_generated.txt'
+$SummaryFile = Join-Path $WorkDir 'summary_result.csv'
+$ErrorsFile  = Join-Path $WorkDir 'compare_errors.csv'
+$MissingFile = Join-Path $WorkDir 'missing_files.csv'
 
-# 個別レポートを取得する
-$files = @(
-    Get-ChildItem -LiteralPath $ReportDir `
-        -Filter 'report_*.csv' -File |
-    Sort-Object Name
-)
+function Quote-BC([string]$Value) {
+    if ($Value.Contains('"')) {
+        throw "パスに引用符があります: $Value"
+    }
+    return '"' + $Value + '"'
+}
 
-$results = New-Object 'System.Collections.Generic.List[object]'
-$errors = New-Object 'System.Collections.Generic.List[object]'
+# ディレクトリを列挙する。
+# 対象外フォルダーには入らない。
+function Get-FileMap([string]$Root) {
+    $map = @{}
+    $stack = New-Object System.Collections.Stack
+    $stack.Push($Root)
 
-foreach ($file in $files) {
-    try {
-        # 先頭2行はレポート情報のため除外する
-        # 3行目からCSVとして読み込む
-        $lines = @(
-            Get-Content -LiteralPath $file.FullName `
-                -Encoding UTF8 |
-            Select-Object -Skip 2
+    while ($stack.Count -gt 0) {
+        $folder = [string]$stack.Pop()
+        $items = @(
+            Get-ChildItem -LiteralPath $folder -Force -ErrorAction Stop
         )
 
-        if ($lines.Count -lt 2) {
-            throw 'CSVデータが不足しています'
+        foreach ($item in $items) {
+            if ($item.PSIsContainer) {
+                if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                    continue
+                }
+
+                if ($ExcludeDirs -notcontains $item.Name) {
+                    $stack.Push($item.FullName)
+                }
+            }
+            elseif (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) {
+                $rel = $item.FullName.Substring(
+                    $Root.Length
+                ).TrimStart('\')
+
+                $map[$rel] = $item.FullName
+            }
+        }
+    }
+
+    return $map
+}
+
+# EUC-JP -> UTF-8(BOMなし)。
+# 変換不能なバイト列はエラーにする。
+# 元ファイルのバイト列は変更しない。
+# 改行コードもそのまま保持する。
+function Convert-EucToUtf8(
+    [string]$Source,
+    [string]$Destination
+) {
+    $euc = [System.Text.Encoding]::GetEncoding(
+        51932,
+        (New-Object System.Text.EncoderExceptionFallback),
+        (New-Object System.Text.DecoderExceptionFallback)
+    )
+
+    $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+
+    $bytes = [IO.File]::ReadAllBytes($Source)
+    $content = $euc.GetString($bytes)
+    $converted = $utf8.GetBytes($content)
+
+    [IO.File]::WriteAllBytes($Destination, $converted)
+}
+
+# 出力CSVのヘッダーを保証する
+function Write-CsvOrHeader($Rows, [string]$Path, [string]$Header) {
+    if (@($Rows).Count -gt 0) {
+        $Rows | Export-Csv -LiteralPath $Path `
+            -NoTypeInformation -Encoding UTF8
+    }
+    else {
+        $Header | Set-Content -LiteralPath $Path `
+            -Encoding UTF8
+    }
+}
+
+# ===== 準備 =====
+$LeftRoot = (Resolve-Path -LiteralPath $LeftRoot).Path.TrimEnd('\')
+$RightRoot = (Resolve-Path -LiteralPath $RightRoot).Path.TrimEnd('\')
+
+if (-not (Test-Path -LiteralPath $BCompare -PathType Leaf)) {
+    throw "実行ファイルがありません: $BCompare"
+}
+
+if (-not (Test-Path -LiteralPath $WorkDir -PathType Container)) {
+    throw "出力先がありません: $WorkDir"
+}
+
+# 古い詳細結果を混入させない
+# 対象の作業用フォルダーのみ削除
+foreach ($dir in @($DetailDir, $TempDir)) {
+    if (Test-Path -LiteralPath $dir) {
+        Remove-Item -LiteralPath $dir -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Path $dir | Out-Null
+}
+
+foreach ($p in @(
+    $ScriptFile,
+    $SummaryFile,
+    $ErrorsFile,
+    $MissingFile
+)) {
+    if (Test-Path -LiteralPath $p) {
+        Remove-Item -LiteralPath $p -Force
+    }
+}
+
+Write-Host 'ファイル一覧を取得しています...'
+
+$leftMap = Get-FileMap $LeftRoot
+$rightMap = Get-FileMap $RightRoot
+
+$paths = @(
+    @($leftMap.Keys) + @($rightMap.Keys) |
+    Sort-Object -Unique
+)
+
+$manifest = New-Object 'System.Collections.Generic.List[object]'
+$missing = New-Object 'System.Collections.Generic.List[object]'
+$commands = New-Object 'System.Collections.Generic.List[string]'
+
+$commands.Add('criteria rules-based')
+$index = 0
+
+# ===== 差分候補を選択 =====
+foreach ($rel in $paths) {
+    $hasL = $leftMap.ContainsKey($rel)
+    $hasR = $rightMap.ContainsKey($rel)
+
+    if (-not ($hasL -and $hasR)) {
+        $missing.Add([pscustomobject]@{
+            File = $rel
+            Status = $(if ($hasL) {
+                '左側のみ'
+            }
+            else {
+                '右側のみ'
+            })
+        })
+        continue
+    }
+
+    $lp = $leftMap[$rel]
+    $rp = $rightMap[$rel]
+
+    $hashL = (Get-FileHash -LiteralPath $lp -Algorithm SHA256).Hash
+    $hashR = (Get-FileHash -LiteralPath $rp -Algorithm SHA256).Hash
+
+    if ($hashL -eq $hashR) {
+        continue
+    }
+
+    $index++
+
+    $reportPath = Join-Path $DetailDir (
+        'report_{0:D6}.csv' -f $index
+    )
+
+    $manifest.Add([pscustomobject]@{
+        File = $rel
+        Left = $lp
+        Right = $rp
+        Report = $reportPath
+        IsEuc = ($rel -ieq $EucRelativePath)
+    })
+}
+
+# ===== 個別レポート生成 =====
+# ファイルごとに独立した実行にする。
+# 1件の失敗が他のレポートを壊さない。
+
+$executionErrors = @{}
+$completed = 0
+
+foreach ($item in $manifest) {
+    $completed++
+
+    Write-Progress `
+        -Activity '差分統計中' `
+        -Status "$completed / $($manifest.Count): $($item.File)" `
+        -PercentComplete (
+            100 * $completed / [math]::Max(1, $manifest.Count)
+        )
+
+    $lp = $item.Left
+    $rp = $item.Right
+
+    try {
+        if ($item.IsEuc) {
+            # このファイルのみ左右ともEUC-JPで読み込んで
+            # UTF-8へ一時変換する。
+            $lp = Join-Path $TempDir 'euc_left_utf8.cp'
+            $rp = Join-Path $TempDir 'euc_right_utf8.cp'
+
+            Convert-EucToUtf8 $item.Left $lp
+            Convert-EucToUtf8 $item.Right $rp
         }
 
-        $rows = @($lines | ConvertFrom-Csv)
+        $command = 'file-report layout:statistics options:display-all output-to:' +
+            (Quote-BC $item.Report) + ' ' +
+            (Quote-BC $lp) + ' ' +
+            (Quote-BC $rp)
 
-        foreach ($row in $rows) {
-            # 必要な列が存在するか確認する
-            foreach ($name in @(
-                'SourceFile','CompareFile',
-                'IDeleted','IAdded','IChanged'
+        $commands.Add($command)
+
+        $singleScript = Join-Path $TempDir 'compare_single.txt'
+
+        @(
+            'criteria rules-based'
+            $command
+        ) | Set-Content -LiteralPath $singleScript -Encoding Default
+
+        # Beyond Compareを実行する
+        & $BCompare "@$singleScript" | Out-Null
+
+        # レポートが生成されたか確認する
+        if (-not (Test-Path -LiteralPath $item.Report -PathType Leaf)) {
+            throw 'レポート未作成'
+        }
+
+        if ((Get-Item -LiteralPath $item.Report).Length -eq 0) {
+            throw 'レポートが空です'
+        }
+    }
+    catch {
+        # 同一ファイルの実行エラーは1件だけ保持する
+        $executionErrors[$item.File] = $_.Exception.Message
+    }
+}
+
+Write-Progress -Activity '差分統計中' -Completed
+
+$commands | Set-Content -LiteralPath $ScriptFile -Encoding Default
+
+# ===== CSV解析 =====
+# 先頭2行は説明、3行目は列名
+
+$summary = New-Object 'System.Collections.Generic.List[object]'
+$errors = New-Object 'System.Collections.Generic.List[object]'
+
+foreach ($item in $manifest) {
+    $reason = $null
+
+    if ($executionErrors.ContainsKey($item.File)) {
+        $reason = $executionErrors[$item.File]
+    }
+    else {
+        try {
+            $lines = @(
+                Get-Content -LiteralPath $item.Report -Encoding UTF8 |
+                Select-Object -Skip 2
+            )
+
+            if ($lines.Count -lt 2) {
+                throw 'CSVデータが不足しています'
+            }
+
+            $rows = @($lines | ConvertFrom-Csv)
+
+            if ($rows.Count -ne 1) {
+                throw "データ行数が不正です: $($rows.Count)"
+            }
+
+            $row = $rows[0]
+
+            foreach ($column in @(
+                'SourceFile',
+                'CompareFile',
+                'IDeleted',
+                'IAdded',
+                'IChanged'
             )) {
-                if ($row.PSObject.Properties.Name -notcontains $name) {
-                    throw "必要な列がありません: $name"
+                if ($row.PSObject.Properties.Name -notcontains $column) {
+                    throw "必要な列がありません: $column"
                 }
             }
 
-            # 数値変換に失敗した場合はエラーとして記録
             $deleted = 0
             $added = 0
             $changed = 0
 
-            if (-not [int]::TryParse($row.IDeleted, [ref]$deleted) -or
+            if (
+                -not [int]::TryParse($row.IDeleted, [ref]$deleted) -or
                 -not [int]::TryParse($row.IAdded, [ref]$added) -or
-                -not [int]::TryParse($row.IChanged, [ref]$changed)) {
+                -not [int]::TryParse($row.IChanged, [ref]$changed)
+            ) {
                 throw '差分件数が数値ではありません'
             }
 
-            # 差分件数がすべて0の場合は出力しない
-            if (($deleted + $added + $changed) -eq 0) {
-                continue
-            }
-
-            # 指定した6列で集計する
-            $results.Add([pscustomobject][ordered]@{
-                LeftFile = $row.SourceFile
-                RightFile = $row.CompareFile
+            # 3値がすべて0の場合も確認できるよう出力する
+            $summary.Add([pscustomobject][ordered]@{
+                LeftFile = $item.Left
+                RightFile = $item.Right
                 LeftOnly = $deleted
                 RightOnly = $added
                 Different = $changed
                 Status = 'OK'
             })
         }
+        catch {
+            $reason = $_.Exception.Message
+        }
     }
-    catch {
+
+    # 同じファイルのエラーを重複登録しない
+    if ($null -ne $reason) {
         $errors.Add([pscustomobject]@{
-            Report = $file.Name
-            Reason = $_.Exception.Message
+            File = $item.File
+            Reason = $reason
         })
     }
 }
 
-# Excelで開けるCSVを出力する
-if ($results.Count -gt 0) {
-    $results | Export-Csv -LiteralPath $OutputFile `
-        -NoTypeInformation -Encoding UTF8
-}
+# ===== 最終結果出力 =====
 
-# 読み込みに失敗したレポートを記録する
-if ($errors.Count -gt 0) {
-    $errors | Export-Csv -LiteralPath $ErrorFile `
-        -NoTypeInformation -Encoding UTF8
-}
+Write-CsvOrHeader $summary.ToArray() $SummaryFile `
+    '"LeftFile","RightFile","LeftOnly","RightOnly","Different","Status"'
 
-Write-Host '===== 集計結果 ====='
-Write-Host "レポート数: $($files.Count)"
-Write-Host "差分ファイル数: $($results.Count)"
-Write-Host "解析エラー数: $($errors.Count)"
-Write-Host "出力先: $OutputFile"
+Write-CsvOrHeader $errors.ToArray() $ErrorsFile `
+    '"File","Reason"'
+
+Write-CsvOrHeader $missing.ToArray() $MissingFile `
+    '"File","Status"'
+
+Write-Host ''
+Write-Host '===== 処理結果 ====='
+Write-Host "差分候補: $($manifest.Count)"
+Write-Host "集計成功: $($summary.Count)"
+Write-Host "集計失敗: $($errors.Count)"
+Write-Host "片側のみ: $($missing.Count)"
+Write-Host "集計結果: $SummaryFile"
+Write-Host "エラー一覧: $ErrorsFile"
+Write-Host '処理終了'
