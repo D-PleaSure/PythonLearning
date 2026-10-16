@@ -7,25 +7,132 @@ http://127.0.0.1:8000/lcmonitor/index/
 Test-NetConnection 192.168.50.234 -Port 8000
 
 
-    def clean_month(self):
-        month = self.cleaned_data['month']
+-- 用户
+SELECT *
+FROM TB_USER
+ORDER BY CORP_CODE;
 
-        # 半角数字6桁のyyyymm形式を確認する
-        if not re.fullmatch(r'[0-9]{6}', month):
-            raise forms.ValidationError(
-                "This field required 'yyyymm' format"
-            )
+-- 连接方式
+SELECT *
+FROM TB_CONNECT_FORM
+ORDER BY CPU_FLAG;
 
-        # 年月が実在することを確認する
-        try:
-            datetime.date(
-                int(month[:4]),
-                int(month[4:6]),
-                1
-            )
-        except ValueError:
-            raise forms.ValidationError(
-                "Enter a valid month (yyyymm)."
-            )
+-- 日历：2026年8～10月
+SELECT *
+FROM TB_CALENDAR
+WHERE CALENDAR_DATE >= '20260801'
+  AND CALENDAR_DATE <  '20261101'
+ORDER BY CALENDAR_DATE;
 
-        return month
+
+SELECT *
+FROM (
+    SELECT *
+    FROM TB_SETTLE_HOZON
+    WHERE SETTLE_DATE >= '20260901'
+      AND SETTLE_DATE <  '20261001'
+    ORDER BY SETTLE_DATE, CORP_CODE, AMEND_DATE, AMEND_TIME
+)
+WHERE ROWNUM <= 5;
+
+
+SELECT *
+FROM (
+    SELECT *
+    FROM MTV_CA
+    WHERE SETTLE_DATE >= '20260901'
+      AND SETTLE_DATE <  '20261001'
+    ORDER BY SETTLE_DATE, CORP_CODE
+)
+WHERE ROWNUM <= 5;
+
+
+SELECT *
+FROM (
+    SELECT *
+    FROM MTV_CADX
+    WHERE SETTLE_DATE >= '20260901'
+      AND SETTLE_DATE <  '20261001'
+    ORDER BY SETTLE_DATE, CORP_CODE
+)
+WHERE ROWNUM <= 5;
+
+
+SELECT *
+FROM (
+    SELECT *
+    FROM MTV_JGB
+    WHERE SETTLE_DATE >= '20260901'
+      AND SETTLE_DATE <  '20261001'
+    ORDER BY SETTLE_DATE, CORP_CODE
+)
+WHERE ROWNUM <= 5;
+
+
+SELECT *
+FROM (
+    SELECT *
+    FROM MTV_COL
+    WHERE SETTLE_DATE >= '20260901'
+      AND SETTLE_DATE <  '20261001'
+    ORDER BY SETTLE_DATE, CORP_CODE
+)
+WHERE ROWNUM <= 5;
+
+
+SELECT *
+FROM (
+    SELECT *
+    FROM MTV_FE
+    WHERE SETTLE_DATE >= '20260901'
+      AND SETTLE_DATE <  '20261001'
+    ORDER BY SETTLE_DATE, CORP_CODE, FE_BOJ_SETTLE_METHOD
+)
+WHERE ROWNUM <= 5;
+
+
+SELECT *
+FROM (
+    SELECT *
+    FROM MTV_JB
+    WHERE SETTLE_DATE >= '20260901'
+      AND SETTLE_DATE <  '20261001'
+    ORDER BY SETTLE_DATE, CORP_CODE
+)
+WHERE ROWNUM <= 5;
+
+
+-- 送信电文
+SELECT *
+FROM (
+    SELECT *
+    FROM TB_INQ_HOZON
+    WHERE AMEND_DATE >= '20260901'
+      AND AMEND_DATE <  '20261001'
+    ORDER BY AMEND_DATE, CORP_CODE, AMEND_TIME
+)
+WHERE ROWNUM <= 5;
+
+
+-- 受信电文
+SELECT *
+FROM (
+    SELECT *
+    FROM TB_RES_HOZON
+    WHERE AMEND_DATE >= '20260901'
+      AND AMEND_DATE <  '20261001'
+    ORDER BY AMEND_DATE, CORP_CODE, AMEND_TIME
+)
+WHERE ROWNUM <= 5;
+
+
+-- EX电文
+SELECT *
+FROM (
+    SELECT *
+    FROM TB_EX_HOZON
+    WHERE AMEND_DATE >= '20260901'
+      AND AMEND_DATE <  '20261001'
+    ORDER BY AMEND_DATE, CORP_CODE, AMEND_TIME
+)
+WHERE ROWNUM <= 5;
