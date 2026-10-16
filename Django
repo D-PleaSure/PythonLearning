@@ -7,132 +7,389 @@ http://127.0.0.1:8000/lcmonitor/index/
 Test-NetConnection 192.168.50.234 -Port 8000
 
 
--- 用户
-SELECT *
-FROM TB_USER
-ORDER BY CORP_CODE;
+WITH
+/* 需要比较的月份 */
+months AS (
+    SELECT '202608' ym FROM dual UNION ALL
+    SELECT '202609'    FROM dual UNION ALL
+    SELECT '202610'    FROM dual
+),
 
--- 连接方式
-SELECT *
-FROM TB_CONNECT_FORM
-ORDER BY CPU_FLAG;
+/* 决済明细及电文统一为相同结构 */
+details AS (
+    SELECT 'TB_SETTLE_HOZON' tab,
+           corp_code corp,
+           settle_date dt,
+           amend_time tm,
+           record_id rid
+    FROM tb_settle_hozon
+    WHERE settle_date >= '20260801'
+      AND settle_date <  '20261101'
 
--- 日历：2026年8～10月
-SELECT *
-FROM TB_CALENDAR
-WHERE CALENDAR_DATE >= '20260801'
-  AND CALENDAR_DATE <  '20261101'
-ORDER BY CALENDAR_DATE;
+    UNION ALL
 
+    SELECT 'TB_INQ_HOZON',
+           corp_code, amend_date, amend_time, NULL
+    FROM tb_inq_hozon
+    WHERE amend_date >= '20260801'
+      AND amend_date <  '20261101'
 
-SELECT *
-FROM (
-    SELECT *
-    FROM TB_SETTLE_HOZON
-    WHERE SETTLE_DATE >= '20260901'
-      AND SETTLE_DATE <  '20261001'
-    ORDER BY SETTLE_DATE, CORP_CODE, AMEND_DATE, AMEND_TIME
+    UNION ALL
+
+    SELECT 'TB_RES_HOZON',
+           corp_code, amend_date, amend_time, NULL
+    FROM tb_res_hozon
+    WHERE amend_date >= '20260801'
+      AND amend_date <  '20261101'
+
+    UNION ALL
+
+    SELECT 'TB_EX_HOZON',
+           corp_code, amend_date, amend_time, NULL
+    FROM tb_ex_hozon
+    WHERE amend_date >= '20260801'
+      AND amend_date <  '20261101'
+),
+
+/* 六张汇总表 */
+aggregates AS (
+    SELECT 'MTV_CA' tab, corp_code corp,
+           settle_date dt, record_count cnt,
+           amount_sum val, 'AMOUNT_SUM' item
+    FROM mtv_ca
+
+    UNION ALL
+    SELECT 'MTV_CADX', corp_code, settle_date,
+           record_count, amount_sum, 'AMOUNT_SUM'
+    FROM mtv_cadx
+
+    UNION ALL
+    SELECT 'MTV_JGB', corp_code, settle_date,
+           record_count, quantity_sum, 'QUANTITY_SUM'
+    FROM mtv_jgb
+
+    UNION ALL
+    SELECT 'MTV_COL', corp_code, settle_date,
+           record_count, quantity_sum, 'QUANTITY_SUM'
+    FROM mtv_col
+
+    UNION ALL
+    SELECT 'MTV_FE', corp_code, settle_date,
+           record_count, amount_sum, 'AMOUNT_SUM'
+    FROM mtv_fe
+
+    UNION ALL
+    SELECT 'MTV_JB', corp_code, settle_date,
+           record_count, NULL, 'RECORD_COUNT'
+    FROM mtv_jb
+),
+
+/* 02画面：00/02明细的日别公司件数 */
+settle_days AS (
+    SELECT corp, dt, COUNT(*) cnt
+    FROM details
+    WHERE tab = 'TB_SETTLE_HOZON'
+      AND rid IN ('00', '02')
+    GROUP BY corp, dt
+),
+
+/* 05画面：09:00以上、10:00未满的CPU公司件数 */
+cpu_days AS (
+    SELECT d.corp, d.dt, COUNT(*) cnt
+    FROM details d
+    WHERE d.tab = 'TB_SETTLE_HOZON'
+      AND d.rid IN ('00', '02')
+      AND d.tm >= '090000'
+      AND d.tm <  '100000'
+      AND EXISTS (
+          SELECT 1
+          FROM tb_user u
+          WHERE u.corp_code = d.corp
+            AND u.cpu_flag = '1'
+      )
+    GROUP BY d.corp, d.dt
+),
+
+report AS (
+    /* 01：各表各月的数据量，包括0件 */
+    SELECT '01_月別件数' category,
+           t.tab table_name,
+           m.ym target,
+           '-' company,
+           'ROWS' item,
+           TO_CHAR(COUNT(d.dt)) result
+    FROM months m
+    CROSS JOIN (
+        SELECT 'TB_SETTLE_HOZON' tab FROM dual UNION ALL
+        SELECT 'TB_INQ_HOZON' FROM dual UNION ALL
+        SELECT 'TB_RES_HOZON' FROM dual UNION ALL
+        SELECT 'TB_EX_HOZON' FROM dual
+    ) t
+    LEFT JOIN details d
+      ON d.tab = t.tab
+     AND SUBSTR(d.dt, 1, 6) = m.ym
+    GROUP BY t.tab, m.ym
+
+    UNION ALL
+
+    SELECT '01_月別件数', t.tab, m.ym, '-',
+           'ROWS=' || TO_CHAR(COUNT(a.dt)),
+           'RECORD_COUNT_SUM=' ||
+           TO_CHAR(NVL(SUM(a.cnt), 0))
+    FROM months m
+    CROSS JOIN (
+        SELECT 'MTV_CA' tab FROM dual UNION ALL
+        SELECT 'MTV_CADX' FROM dual UNION ALL
+        SELECT 'MTV_JGB' FROM dual UNION ALL
+        SELECT 'MTV_COL' FROM dual UNION ALL
+        SELECT 'MTV_FE' FROM dual UNION ALL
+        SELECT 'MTV_JB' FROM dual
+    ) t
+    LEFT JOIN aggregates a
+      ON a.tab = t.tab
+     AND SUBSTR(a.dt, 1, 6) = m.ym
+    GROUP BY t.tab, m.ym
+
+    UNION ALL
+
+    /* 02：实际公司、CPU、课金、期限 */
+    SELECT '02_ユーザー', 'TB_USER', '-',
+           corp_code,
+           'CPU=' || cpu_flag ||
+           ',PAYG=' || jasdec_deal_payg_flag,
+           'EXPIRE=' || expire_date
+    FROM tb_user
+
+    UNION ALL
+
+    SELECT '03_接続形態', 'TB_CONNECT_FORM', '-',
+           cpu_flag,
+           connect_form,
+           charge_code
+    FROM tb_connect_form
+
+    UNION ALL
+
+    /* 各月用于门槛分母的CPU用户数 */
+    SELECT '04_月初有効CPU', 'TB_USER', m.ym, '-',
+           'CPU_FLAG=1,EXPIRE_DATE>=月初',
+           TO_CHAR(COUNT(u.corp_code))
+    FROM months m
+    LEFT JOIN tb_user u
+      ON u.cpu_flag = '1'
+     AND u.expire_date >= m.ym || '01'
+    GROUP BY m.ym
+
+    UNION ALL
+
+    /* 05：日期边界是否存在 */
+    SELECT '05_日付境界', tab, dt, '-',
+           'ROWS', TO_CHAR(COUNT(*))
+    FROM details
+    WHERE dt IN (
+        '20260831', '20260901', '20260930',
+        '20261001', '20261031'
+    )
+    GROUP BY tab, dt
+
+    UNION ALL
+
+    SELECT '05_日付境界', tab, dt, '-',
+           'ROWS', TO_CHAR(COUNT(*))
+    FROM aggregates
+    WHERE dt IN (
+        '20260831', '20260901', '20260930',
+        '20261001', '20261031'
+    )
+    GROUP BY tab, dt
+
+    UNION ALL
+
+    /* 06：记录区分 */
+    SELECT '06_レコード区分', tab,
+           SUBSTR(dt, 1, 6), corp,
+           NVL(TRIM(rid), '<NULL/SPACE>'),
+           TO_CHAR(COUNT(*))
+    FROM details
+    WHERE tab = 'TB_SETTLE_HOZON'
+    GROUP BY tab, SUBSTR(dt, 1, 6), corp, rid
+
+    UNION ALL
+
+    /* 07：时刻缺失与指定边界 */
+    SELECT '07_時刻', tab, SUBSTR(dt, 1, 6), '-',
+           CASE
+               WHEN TRIM(tm) IS NULL THEN '<NULL/SPACE>'
+               WHEN tm IN (
+                   '000000', '085959', '090000',
+                   '095959', '100000',
+                   '235859', '235900', '235959'
+               ) THEN tm
+               ELSE 'OTHER'
+           END,
+           TO_CHAR(COUNT(*))
+    FROM details
+    GROUP BY tab, SUBSTR(dt, 1, 6),
+           CASE
+               WHEN TRIM(tm) IS NULL THEN '<NULL/SPACE>'
+               WHEN tm IN (
+                   '000000', '085959', '090000',
+                   '095959', '100000',
+                   '235859', '235900', '235959'
+               ) THEN tm
+               ELSE 'OTHER'
+           END
+
+    UNION ALL
+
+    /* 08：已有精确件数，可寻找能直接使用的日子 */
+    SELECT '08_決済日別件数', 'TB_SETTLE_HOZON',
+           dt, corp, 'RECORD_ID=00/02',
+           TO_CHAR(cnt)
+    FROM settle_days
+    WHERE cnt IN (1, 2, 3, 4, 5, 10, 49, 50, 51, 1234)
+
+    UNION ALL
+
+    SELECT '09_全社グラフ境界', 'TB_SETTLE_HOZON',
+           dt, 'ALL', 'RECORD_ID=00/02',
+           TO_CHAR(SUM(cnt))
+    FROM settle_days
+    GROUP BY dt
+    HAVING SUM(cnt) IN (4999, 5000, 5001)
+
+    UNION ALL
+
+    SELECT '10_CPU単社境界', 'TB_SETTLE_HOZON',
+           dt, corp, '09:00<=TIME<10:00',
+           TO_CHAR(cnt)
+    FROM cpu_days
+    WHERE cnt IN (999, 1000, 1001)
+
+    UNION ALL
+
+    SELECT '11_CPU全社件数', 'TB_SETTLE_HOZON',
+           dt, 'ALL', '09:00<=TIME<10:00',
+           TO_CHAR(SUM(cnt))
+    FROM cpu_days
+    GROUP BY dt
+
+    UNION ALL
+
+    /* 12：汇总表的小件数、金额/数量边界 */
+    SELECT '12_集計値境界', tab, dt, corp,
+           'RECORD_COUNT', TO_CHAR(cnt)
+    FROM aggregates
+    WHERE dt >= '20260801'
+      AND dt <  '20261101'
+      AND cnt IN (0, 1, 2, 3, 4, 5, 1234)
+
+    UNION ALL
+
+    SELECT '12_集計値境界', tab, dt, corp,
+           item, TO_CHAR(val)
+    FROM aggregates
+    WHERE dt >= '20260801'
+      AND dt <  '20261101'
+      AND val IN (0, 999999, 1000000, 1999999, 2000000)
+
+    UNION ALL
+
+    SELECT '12_集計値境界', 'MTV_COL',
+           settle_date, corp_code,
+           'COL_VALUE_SUM', TO_CHAR(col_value_sum)
+    FROM mtv_col
+    WHERE settle_date >= '20260801'
+      AND settle_date <  '20261101'
+      AND col_value_sum IN (
+          0, 999999, 1000000, 1999999, 2000000
+      )
+
+    UNION ALL
+
+    /* 13：外为方式 */
+    SELECT '13_外為区分', 'MTV_FE',
+           SUBSTR(settle_date, 1, 6), '-',
+           fe_boj_settle_method,
+           'ROWS=' || TO_CHAR(COUNT(*)) ||
+           ',COUNT_SUM=' || TO_CHAR(SUM(record_count))
+    FROM mtv_fe
+    WHERE settle_date >= '20260801'
+      AND settle_date <  '20261101'
+    GROUP BY SUBSTR(settle_date, 1, 6), fe_boj_settle_method
+
+    UNION ALL
+
+    /* 14：三种电文日别公司件数 */
+    SELECT '14_電文日別件数', tab, dt, corp,
+           'ALL_TIME', TO_CHAR(COUNT(*))
+    FROM details
+    WHERE tab <> 'TB_SETTLE_HOZON'
+    GROUP BY tab, dt, corp
+
+    UNION ALL
+
+    SELECT '14_電文日別件数', tab, dt, corp,
+           '09:00<=TIME<10:00', TO_CHAR(COUNT(*))
+    FROM details
+    WHERE tab <> 'TB_SETTLE_HOZON'
+      AND tm >= '090000'
+      AND tm <  '100000'
+    GROUP BY tab, dt, corp
+
+    UNION ALL
+
+    /* 15：电文日期不一致 */
+    SELECT '15_電文日付相違', 'TB_INQ_HOZON',
+           SUBSTR(amend_date, 1, 6), '-',
+           'SEND_DATE<>AMEND_DATE', TO_CHAR(COUNT(*))
+    FROM tb_inq_hozon
+    WHERE amend_date >= '20260801'
+      AND amend_date <  '20261101'
+      AND send_date <> amend_date
+    GROUP BY SUBSTR(amend_date, 1, 6)
+
+    UNION ALL
+
+    SELECT '15_電文日付相違', 'TB_RES_HOZON',
+           SUBSTR(amend_date, 1, 6), '-',
+           'RECV_DATE<>AMEND_DATE', TO_CHAR(COUNT(*))
+    FROM tb_res_hozon
+    WHERE amend_date >= '20260801'
+      AND amend_date <  '20261101'
+      AND recv_date <> amend_date
+    GROUP BY SUBSTR(amend_date, 1, 6)
+
+    UNION ALL
+
+    /* 16：社债月合计，包含无交易用户 */
+    SELECT '16_社債会社月合計', 'MTV_JB',
+           m.ym, u.corp_code,
+           'CPU=' || u.cpu_flag ||
+           ',PAYG=' || u.jasdec_deal_payg_flag ||
+           ',EXPIRE=' || u.expire_date,
+           TO_CHAR(NVL(SUM(j.record_count), 0))
+    FROM months m
+    CROSS JOIN tb_user u
+    LEFT JOIN mtv_jb j
+      ON j.corp_code = u.corp_code
+     AND SUBSTR(j.settle_date, 1, 6) = m.ym
+    GROUP BY m.ym, u.corp_code,
+             u.cpu_flag, u.jasdec_deal_payg_flag, u.expire_date
+
+    UNION ALL
+
+    /* 17：日历 */
+    SELECT '17_日暦', 'TB_CALENDAR',
+           calendar_date, '-', 'HOLIDAY_ID', holiday_id
+    FROM tb_calendar
+    WHERE (calendar_date >= '20260801'
+       AND calendar_date <  '20261101')
+       OR (calendar_date >= '20240201'
+       AND calendar_date <  '20240302')
+       OR (calendar_date >= '20260201'
+       AND calendar_date <  '20260302')
 )
-WHERE ROWNUM <= 5;
-
-
-SELECT *
-FROM (
-    SELECT *
-    FROM MTV_CA
-    WHERE SETTLE_DATE >= '20260901'
-      AND SETTLE_DATE <  '20261001'
-    ORDER BY SETTLE_DATE, CORP_CODE
-)
-WHERE ROWNUM <= 5;
-
-
-SELECT *
-FROM (
-    SELECT *
-    FROM MTV_CADX
-    WHERE SETTLE_DATE >= '20260901'
-      AND SETTLE_DATE <  '20261001'
-    ORDER BY SETTLE_DATE, CORP_CODE
-)
-WHERE ROWNUM <= 5;
-
-
-SELECT *
-FROM (
-    SELECT *
-    FROM MTV_JGB
-    WHERE SETTLE_DATE >= '20260901'
-      AND SETTLE_DATE <  '20261001'
-    ORDER BY SETTLE_DATE, CORP_CODE
-)
-WHERE ROWNUM <= 5;
-
-
-SELECT *
-FROM (
-    SELECT *
-    FROM MTV_COL
-    WHERE SETTLE_DATE >= '20260901'
-      AND SETTLE_DATE <  '20261001'
-    ORDER BY SETTLE_DATE, CORP_CODE
-)
-WHERE ROWNUM <= 5;
-
-
-SELECT *
-FROM (
-    SELECT *
-    FROM MTV_FE
-    WHERE SETTLE_DATE >= '20260901'
-      AND SETTLE_DATE <  '20261001'
-    ORDER BY SETTLE_DATE, CORP_CODE, FE_BOJ_SETTLE_METHOD
-)
-WHERE ROWNUM <= 5;
-
-
-SELECT *
-FROM (
-    SELECT *
-    FROM MTV_JB
-    WHERE SETTLE_DATE >= '20260901'
-      AND SETTLE_DATE <  '20261001'
-    ORDER BY SETTLE_DATE, CORP_CODE
-)
-WHERE ROWNUM <= 5;
-
-
--- 送信电文
-SELECT *
-FROM (
-    SELECT *
-    FROM TB_INQ_HOZON
-    WHERE AMEND_DATE >= '20260901'
-      AND AMEND_DATE <  '20261001'
-    ORDER BY AMEND_DATE, CORP_CODE, AMEND_TIME
-)
-WHERE ROWNUM <= 5;
-
-
--- 受信电文
-SELECT *
-FROM (
-    SELECT *
-    FROM TB_RES_HOZON
-    WHERE AMEND_DATE >= '20260901'
-      AND AMEND_DATE <  '20261001'
-    ORDER BY AMEND_DATE, CORP_CODE, AMEND_TIME
-)
-WHERE ROWNUM <= 5;
-
-
--- EX电文
-SELECT *
-FROM (
-    SELECT *
-    FROM TB_EX_HOZON
-    WHERE AMEND_DATE >= '20260901'
-      AND AMEND_DATE <  '20261001'
-    ORDER BY AMEND_DATE, CORP_CODE, AMEND_TIME
-)
-WHERE ROWNUM <= 5;
+SELECT category, table_name, target, company, item, result
+FROM report
+ORDER BY category, table_name, target, company, item;
