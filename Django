@@ -7,11 +7,17 @@ http://127.0.0.1:8000/lcmonitor/index/
 Test-NetConnection 192.168.50.234 -Port 8000
 
 
-cd C:\work\lcmonitor\mysite
+<form action="" method="post">
+    {% csrf_token %}
+    <ul>
 
-Select-String -Path .\lcmonitor\templates\base_dlcsv.html -Pattern '<form','csrf','</form>' -Context 3,3
 
-C:\venvs\lcmonitor2\Scripts\python.exe manage.py shell -c "import inspect; from lcmonitor import views; from django.template.loader import get_template; print(get_template('settle_count_detail.html').origin); print(get_template('base_dlcsv.html').origin); print(inspect.getsource(views.snd_rcv_message))"
+<form action="" method="post">
+    {% csrf_token %}
 
---
-http://127.0.0.1:8000/lcmonitor/snd_rcv_message/
+
+return render(request, 'settle_count_detail.html', locals())
+
+from django.shortcuts import render
+
+Select-String -Path C:\work\lcmonitor\mysite\lcmonitor\templates\base_dlcsv.html -Pattern 'csrf_token'
