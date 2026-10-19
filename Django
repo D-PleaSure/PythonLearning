@@ -7,46 +7,17 @@ http://127.0.0.1:8000/lcmonitor/index/
 Test-NetConnection 192.168.50.234 -Port 8000
 
 
-    @staticmethod
-    def _text(value):
-        if isinstance(value, unicode):
-            return value
-        if isinstance(value, str):
-            return value.decode('utf-8')
-        return unicode(value)
+results = []
+for row in cursor.fetchall():
+    connect_form = row[4]
 
+    if isinstance(connect_form, str):
+        connect_form = connect_form.decode('utf-8')
+    elif not isinstance(connect_form, unicode):
+        connect_form = unicode(connect_form)
 
+    results.append([
+        row[0], row[1], row[2], row[3], connect_form
+    ])
 
-
-
-    def set_table_header(self, table_header):
-        self.csv_table_header = u','.join(
-            self._text(value) for value in table_header
-        )
-
-
-
-
-
-    def create_csv(self, record=None):
-        self.csv_data = u''
-
-        if self.csv_title:
-            self.csv_data += self._text(self.csv_title) + u'\n'
-
-        if self.csv_subtitle:
-            self.csv_data += self._text(self.csv_subtitle) + u'\n'
-
-        if self.csv_table_header:
-            self.csv_data += self._text(self.csv_table_header) + u'\n'
-
-        if record is not None and record != []:
-            self.csv_table_body = record
-
-        for row in self.csv_table_body:
-            self.csv_data += u','.join(
-                self._text(value) for value in row
-            )
-            self.csv_data += u'\n'
-
-        return self.csv_data
+return results
