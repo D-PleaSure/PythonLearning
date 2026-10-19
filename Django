@@ -9,11 +9,9 @@ Test-NetConnection 192.168.50.234 -Port 8000
 
 cd C:\work\lcmonitor\mysite
 
-Select-String -Path .\lcmonitor\views.py -Pattern '/var/www','graph_output','png_file_name','savefig' -Context 2,2
+Select-String -Path .\lcmonitor\templates\base_dlcsv.html -Pattern '<form','csrf','</form>' -Context 3,3
+
+C:\venvs\lcmonitor2\Scripts\python.exe manage.py shell -c "import inspect; from lcmonitor import views; from django.template.loader import get_template; print(get_template('settle_count_detail.html').origin); print(get_template('base_dlcsv.html').origin); print(inspect.getsource(views.snd_rcv_message))"
 
 --
-C:\venvs\lcmonitor2\Scripts\python.exe manage.py shell -c "from lcmonitor import views; from django.conf import settings; print(views.__file__); print(settings.GRAPH_ROOT)"
-
-
---
-C:\venvs\lcmonitor2\Scripts\python.exe manage.py runserver 0.0.0.0:8000 --noreload
+http://127.0.0.1:8000/lcmonitor/snd_rcv_message/
