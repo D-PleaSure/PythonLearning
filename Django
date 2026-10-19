@@ -7,38 +7,13 @@ http://127.0.0.1:8000/lcmonitor/index/
 Test-NetConnection 192.168.50.234 -Port 8000
 
 
-import os
+cd C:\work\lcmonitor\mysite
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-GRAPH_ROOT = os.path.join(BASE_DIR, '.runtime', 'png')
-GRAPH_URL = '/png/'
+Select-String -Path .\lcmonitor\views.py -Pattern '/var/www','graph_output','png_file_name','savefig' -Context 2,2
 
------
-import os
-from django.conf import settings
-
------
-def graph_output(mtime):
-    if not os.path.isdir(settings.GRAPH_ROOT):
-        os.makedirs(settings.GRAPH_ROOT)
-    filename = 'graph_%s.png' % mtime
-    return settings.GRAPH_URL + filename, os.path.join(settings.GRAPH_ROOT, filename)
-
------
-png_file, png_file_name = graph_output(mtime)
-
------
-from django.conf import settings
-from django.conf.urls.static import static
-
------
-if settings.DEBUG:
-    urlpatterns += static(
-        settings.GRAPH_URL,
-        document_root=settings.GRAPH_ROOT
-    )
+--
+C:\venvs\lcmonitor2\Scripts\python.exe manage.py shell -c "from lcmonitor import views; from django.conf import settings; print(views.__file__); print(settings.GRAPH_ROOT)"
 
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.1.50']
+--
 C:\venvs\lcmonitor2\Scripts\python.exe manage.py runserver 0.0.0.0:8000 --noreload
-New-NetFirewallRule -DisplayName "LCMonitor Test TCP 8000" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000 -RemoteAddress LocalSubnet -Profile Domain,Private
