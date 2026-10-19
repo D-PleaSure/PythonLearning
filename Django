@@ -7,313 +7,38 @@ http://127.0.0.1:8000/lcmonitor/index/
 Test-NetConnection 192.168.50.234 -Port 8000
 
 
-WITH
-/* 检查月份 */
-months AS (
-    SELECT '202402' ym FROM dual UNION ALL
-    SELECT '202403' FROM dual UNION ALL
-    SELECT '202602' FROM dual UNION ALL
-    SELECT '202608' FROM dual UNION ALL
-    SELECT '202609' FROM dual UNION ALL
-    SELECT '202610' FROM dual
-),
+import os
 
-/* 决済明细 */
-settle AS (
-    SELECT t.*
-    FROM TB_SETTLE_HOZON t
-    WHERE SUBSTR(t.SETTLE_DATE, 1, 6) IN (SELECT ym FROM months)
-),
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+GRAPH_ROOT = os.path.join(BASE_DIR, '.runtime', 'png')
+GRAPH_URL = '/png/'
 
-/* 三种电文：业务日期与更新日期分别保留 */
-messages AS (
-    SELECT 'TB_INQ_HOZON' tab,
-           CORP_CODE corp,
-           AMEND_DATE dt,
-           AMEND_TIME tm,
-           SEND_DATE business_dt
-    FROM TB_INQ_HOZON
-    WHERE SUBSTR(AMEND_DATE, 1, 6) IN (SELECT ym FROM months)
+-----
+import os
+from django.conf import settings
 
-    UNION ALL
+-----
+def graph_output(mtime):
+    if not os.path.isdir(settings.GRAPH_ROOT):
+        os.makedirs(settings.GRAPH_ROOT)
+    filename = 'graph_%s.png' % mtime
+    return settings.GRAPH_URL + filename, os.path.join(settings.GRAPH_ROOT, filename)
 
-    SELECT 'TB_RES_HOZON',
-           CORP_CODE, AMEND_DATE, AMEND_TIME, RECV_DATE
-    FROM TB_RES_HOZON
-    WHERE SUBSTR(AMEND_DATE, 1, 6) IN (SELECT ym FROM months)
+-----
+png_file, png_file_name = graph_output(mtime)
 
-    UNION ALL
+-----
+from django.conf import settings
+from django.conf.urls.static import static
 
-    SELECT 'TB_EX_HOZON',
-           CORP_CODE, AMEND_DATE, AMEND_TIME,
-           CAST(NULL AS VARCHAR2(8))
-    FROM TB_EX_HOZON
-    WHERE SUBSTR(AMEND_DATE, 1, 6) IN (SELECT ym FROM months)
-),
-
-/* 六张汇总表 */
-aggregates AS (
-    SELECT 'MTV_CA' tab, CORP_CODE corp, SETTLE_DATE dt,
-           '-' method, RECORD_COUNT cnt,
-           AMOUNT_SUM amount_value,
-           CAST(NULL AS NUMBER) quantity_value,
-           CAST(NULL AS NUMBER) collateral_value
-    FROM MTV_CA
-
-    UNION ALL
-    SELECT 'MTV_CADX', CORP_CODE, SETTLE_DATE,
-           '-', RECORD_COUNT, AMOUNT_SUM, NULL, NULL
-    FROM MTV_CADX
-
-    UNION ALL
-    SELECT 'MTV_JGB', CORP_CODE, SETTLE_DATE,
-           '-', RECORD_COUNT, NULL, QUANTITY_SUM, NULL
-    FROM MTV_JGB
-
-    UNION ALL
-    SELECT 'MTV_COL', CORP_CODE, SETTLE_DATE,
-           '-', RECORD_COUNT, NULL, QUANTITY_SUM, COL_VALUE_SUM
-    FROM MTV_COL
-
-    UNION ALL
-    SELECT 'MTV_FE', CORP_CODE, SETTLE_DATE,
-           TRIM(FE_BOJ_SETTLE_METHOD),
-           RECORD_COUNT, AMOUNT_SUM, NULL, NULL
-    FROM MTV_FE
-
-    UNION ALL
-    SELECT 'MTV_JB', CORP_CODE, SETTLE_DATE,
-           '-', RECORD_COUNT, NULL, NULL, NULL
-    FROM MTV_JB
-),
-
-/* 用于检查各表的月份、日期分布 */
-dated_rows AS (
-    SELECT 'TB_SETTLE_HOZON' tab, SETTLE_DATE dt
-    FROM settle
-
-    UNION ALL
-    SELECT tab, dt FROM messages
-
-    UNION ALL
-    SELECT tab, dt FROM aggregates
-    WHERE SUBSTR(dt, 1, 6) IN (SELECT ym FROM months)
-),
-
-table_names AS (
-    SELECT 'TB_SETTLE_HOZON' tab FROM dual UNION ALL
-    SELECT 'MTV_CA' FROM dual UNION ALL
-    SELECT 'MTV_CADX' FROM dual UNION ALL
-    SELECT 'MTV_JGB' FROM dual UNION ALL
-    SELECT 'MTV_COL' FROM dual UNION ALL
-    SELECT 'MTV_FE' FROM dual UNION ALL
-    SELECT 'MTV_JB' FROM dual UNION ALL
-    SELECT 'TB_INQ_HOZON' FROM dual UNION ALL
-    SELECT 'TB_RES_HOZON' FROM dual UNION ALL
-    SELECT 'TB_EX_HOZON' FROM dual
-),
-
-/* 02画面使用的00/02记录 */
-settle_target AS (
-    SELECT *
-    FROM settle
-    WHERE TRIM(RECORD_ID) IN ('00', '02')
-),
-
-/* 05画面使用的CPU公司、09:00～10:00记录 */
-settle_cpu_time AS (
-    SELECT s.*
-    FROM settle_target s
-    WHERE s.AMEND_TIME >= '090000'
-      AND s.AMEND_TIME <  '100000'
-      AND EXISTS (
-          SELECT 1
-          FROM TB_USER u
-          WHERE u.CORP_CODE = s.CORP_CODE
-            AND u.CPU_FLAG = '1'
-      )
-),
-
-report AS (
-    /* 01：全部月份，即使0件也显示 */
-    SELECT '01_MONTH' category,
-           t.tab table_name,
-           m.ym period,
-           '-' corp_code,
-           'ROWS;MIN_DATE;MAX_DATE' item,
-           TO_CHAR(COUNT(d.dt))
-             || ';' || NVL(MIN(d.dt), '-')
-             || ';' || NVL(MAX(d.dt), '-') result
-    FROM table_names t
-    CROSS JOIN months m
-    LEFT JOIN dated_rows d
-      ON d.tab = t.tab
-     AND SUBSTR(d.dt, 1, 6) = m.ym
-    GROUP BY t.tab, m.ym
-
-    UNION ALL
-
-    /* 02：关键日期。未显示的表/日期组合表示无记录 */
-    SELECT '02_DATE', tab, dt, '-', 'ROWS', TO_CHAR(COUNT(*))
-    FROM dated_rows
-    WHERE dt IN (
-        '20240201', '20240228', '20240229',
-        '20240301', '20240302',
-        '20260201', '20260227', '20260228', '20260301',
-        '20260801', '20260831',
-        '20260901', '20260930',
-        '20261001', '20261030', '20261031'
+-----
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.GRAPH_URL,
+        document_root=settings.GRAPH_ROOT
     )
-    GROUP BY tab, dt
-
-    UNION ALL
-
-    /* 03：用户条件 */
-    SELECT '03_USER', 'TB_USER', '-', CORP_CODE,
-           'CPU;PAYG;EXPIRE',
-           NVL(TRIM(CPU_FLAG), '<NULL>')
-             || ';' || NVL(TRIM(JASDEC_DEAL_PAYG_FLAG), '<NULL>')
-             || ';' || NVL(TRIM(EXPIRE_DATE), '<NULL>')
-    FROM TB_USER
-
-    UNION ALL
-
-    /* 04：连接方式 */
-    SELECT '04_CONNECT', 'TB_CONNECT_FORM', '-', '-',
-           'CPU=' || NVL(TRIM(CPU_FLAG), '<NULL>'),
-           NVL(CONNECT_FORM, '<NULL>')
-             || ';CHARGE=' || NVL(CHARGE_CODE, '<NULL>')
-    FROM TB_CONNECT_FORM
-
-    UNION ALL
-
-    /* 05：日历 */
-    SELECT '05_CALENDAR', 'TB_CALENDAR', CALENDAR_DATE, '-',
-           'HOLIDAY_ID', NVL(TRIM(HOLIDAY_ID), '<NULL>')
-    FROM TB_CALENDAR
-    WHERE SUBSTR(CALENDAR_DATE, 1, 6) IN (SELECT ym FROM months)
-
-    UNION ALL
-
-    /* 06：每日、公司、记录区分及空时刻 */
-    SELECT '06_RECORD', 'TB_SETTLE_HOZON',
-           SETTLE_DATE, CORP_CODE,
-           'RECORD_ID=' || NVL(TRIM(RECORD_ID), '<NULL>'),
-           'ROWS=' || TO_CHAR(COUNT(*))
-             || ';EMPTY_TIME=' ||
-                TO_CHAR(SUM(CASE
-                    WHEN TRIM(AMEND_TIME) IS NULL THEN 1 ELSE 0 END))
-             || ';MIN_TIME=' || NVL(MIN(TRIM(AMEND_TIME)), '-')
-             || ';MAX_TIME=' || NVL(MAX(TRIM(AMEND_TIME)), '-')
-    FROM settle
-    GROUP BY SETTLE_DATE, CORP_CODE, RECORD_ID
-
-    UNION ALL
-
-    /* 07：02画面的单公司每日件数 */
-    SELECT '07_GRAPH_CORP', 'TB_SETTLE_HOZON',
-           SETTLE_DATE, CORP_CODE, 'COUNT_00_02',
-           TO_CHAR(COUNT(*))
-    FROM settle_target
-    GROUP BY SETTLE_DATE, CORP_CODE
-
-    UNION ALL
-
-    /* 08：02画面的全社每日件数 */
-    SELECT '08_GRAPH_ALL', 'TB_SETTLE_HOZON',
-           SETTLE_DATE, 'ALL', 'COUNT_00_02',
-           TO_CHAR(COUNT(*))
-    FROM settle_target
-    GROUP BY SETTLE_DATE
-
-    UNION ALL
-
-    /* 09：05画面的单公司每日09时台件数 */
-    SELECT '09_CPU_CORP', 'TB_SETTLE_HOZON',
-           SETTLE_DATE, CORP_CODE, 'CPU_0900_1000',
-           TO_CHAR(COUNT(*))
-    FROM settle_cpu_time
-    GROUP BY SETTLE_DATE, CORP_CODE
-
-    UNION ALL
-
-    /* 10：05画面的全社每日09时台件数 */
-    SELECT '10_CPU_ALL', 'TB_SETTLE_HOZON',
-           SETTLE_DATE, 'ALL', 'CPU_0900_1000',
-           TO_CHAR(COUNT(*))
-    FROM settle_cpu_time
-    GROUP BY SETTLE_DATE
-
-    UNION ALL
-
-    /* 11：决済时刻边界 */
-    SELECT '11_SETTLE_TIME', 'TB_SETTLE_HOZON',
-           SETTLE_DATE, CORP_CODE,
-           'TIME=' || TRIM(AMEND_TIME),
-           TO_CHAR(COUNT(*))
-    FROM settle_target
-    WHERE TRIM(AMEND_TIME) IN (
-        '000000', '085959', '090000', '095959',
-        '100000', '235859', '235900', '235959'
-    )
-    GROUP BY SETTLE_DATE, CORP_CODE, TRIM(AMEND_TIME)
-
-    UNION ALL
-
-    /* 12：汇总表每行的实际件数、金额、数量 */
-    SELECT '12_AGGREGATE', tab, dt, corp,
-           'METHOD=' || NVL(method, '<NULL>'),
-           'COUNT=' || NVL(TO_CHAR(cnt), '<NULL>')
-             || ';AMOUNT=' || NVL(TO_CHAR(amount_value), '<NULL>')
-             || ';QUANTITY=' || NVL(TO_CHAR(quantity_value), '<NULL>')
-             || ';COL_VALUE=' || NVL(TO_CHAR(collateral_value), '<NULL>')
-    FROM aggregates
-    WHERE SUBSTR(dt, 1, 6) IN (SELECT ym FROM months)
-
-    UNION ALL
-
-    /* 13：三种电文每日件数及日期不一致记录 */
-    SELECT '13_MESSAGE', tab, dt, corp,
-           'ROWS;IN_0900_1000;DATE_DIFF;EMPTY_TIME',
-           TO_CHAR(COUNT(*))
-             || ';' || TO_CHAR(SUM(CASE
-                  WHEN tm >= '090000' AND tm < '100000'
-                  THEN 1 ELSE 0 END))
-             || ';' || TO_CHAR(SUM(CASE
-                  WHEN business_dt <> dt THEN 1 ELSE 0 END))
-             || ';' || TO_CHAR(SUM(CASE
-                  WHEN TRIM(tm) IS NULL THEN 1 ELSE 0 END))
-    FROM messages
-    GROUP BY tab, dt, corp
-
-    UNION ALL
-
-    /* 14：电文时刻边界 */
-    SELECT '14_MESSAGE_TIME', tab, dt, corp,
-           'TIME=' || TRIM(tm), TO_CHAR(COUNT(*))
-    FROM messages
-    WHERE TRIM(tm) IN (
-        '000000', '085959', '090000', '095959',
-        '100000', '235859', '235900', '235959'
-    )
-    GROUP BY tab, dt, corp, TRIM(tm)
-)
-SELECT category, table_name, period, corp_code, item, result
-FROM report
-ORDER BY category, table_name, period, corp_code, item;
 
 
-
-
-
-SELECT 'TB_SETTLE_HOZON' TABLE_NAME, COUNT(*) ROW_COUNT
-FROM TB_SETTLE_HOZON WHERE SETTLE_DATE = '20260301'
-UNION ALL
-SELECT 'TB_INQ_HOZON', COUNT(*)
-FROM TB_INQ_HOZON WHERE AMEND_DATE = '20260301'
-UNION ALL
-SELECT 'TB_RES_HOZON', COUNT(*)
-FROM TB_RES_HOZON WHERE AMEND_DATE = '20260301'
-UNION ALL
-SELECT 'TB_EX_HOZON', COUNT(*)
-FROM TB_EX_HOZON WHERE AMEND_DATE = '20260301';
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.1.50']
+C:\venvs\lcmonitor2\Scripts\python.exe manage.py runserver 0.0.0.0:8000 --noreload
+New-NetFirewallRule -DisplayName "LCMonitor Test TCP 8000" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000 -RemoteAddress LocalSubnet -Profile Domain,Private
