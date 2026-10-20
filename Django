@@ -7,17 +7,4 @@ http://127.0.0.1:8000/lcmonitor/index/
 Test-NetConnection 192.168.50.234 -Port 8000
 
 
-results = []
-for row in cursor.fetchall():
-    connect_form = row[4]
-
-    if isinstance(connect_form, str):
-        connect_form = connect_form.decode('utf-8')
-    elif not isinstance(connect_form, unicode):
-        connect_form = unicode(connect_form)
-
-    results.append([
-        row[0], row[1], row[2], row[3], connect_form
-    ])
-
-return results
+New-NetFirewallRule -DisplayName "LCMonitor Test TCP 8000" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000 -RemoteAddress LocalSubnet -Profile Domain,Private
