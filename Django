@@ -6,19 +6,20 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 @'
 import os
+import struct
 from pathlib import Path
 from dotenv import load_dotenv
-import mysite.oracle_client as oc
+import oracledb
 
-env_file = Path.cwd() / ".env.development.local"
-print("env file:", env_file, "exists:", env_file.exists())
-print("user before loading:", repr(os.environ.get("LCMONITOR_ORACLE_USER")))
-load_dotenv(env_file, override=False)
+load_dotenv(".env.development.local", override=False)
+client_dir = os.environ.get("LCMONITOR_ORACLE_CLIENT_LIB_DIR", "").strip()
 
-actual = os.environ.get("LCMONITOR_ORACLE_USER", "")
-expected = oc.LOCAL_DEVELOPMENT_USER
-print("loaded Python file:", oc.__file__)
-print("actual user:", repr(actual))
-print("expected user:", repr(expected))
-print("match:", actual.strip().upper() == expected)
+print("Python bits:", struct.calcsize("P") * 8)
+print("oracledb version:", oracledb.__version__)
+print("Client directory:", repr(client_dir))
+print("oci.dll exists:", (Path(client_dir) / "oci.dll").is_file())
+
+oracledb.init_oracle_client(lib_dir=client_dir)
+print("Client version:", oracledb.clientversion())
+print("Thick mode loaded successfully")
 '@ | python -
