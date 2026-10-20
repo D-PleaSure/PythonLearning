@@ -4,22 +4,4 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-@'
-import os
-import struct
-from pathlib import Path
-from dotenv import load_dotenv
-import oracledb
-
-load_dotenv(".env.development.local", override=False)
-client_dir = os.environ.get("LCMONITOR_ORACLE_CLIENT_LIB_DIR", "").strip()
-
-print("Python bits:", struct.calcsize("P") * 8)
-print("oracledb version:", oracledb.__version__)
-print("Client directory:", repr(client_dir))
-print("oci.dll exists:", (Path(client_dir) / "oci.dll").is_file())
-
-oracledb.init_oracle_client(lib_dir=client_dir)
-print("Client version:", oracledb.clientversion())
-print("Thick mode loaded successfully")
-'@ | python -
+Remove-Item Env:LCMONITOR_ORACLE_CLIENT_LIB_DIR -ErrorAction SilentlyContinue
