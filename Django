@@ -4,37 +4,4 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-
-            with plt.style.context('default'):
-                fig, ax = plt.subplots(figsize=(9, 9), dpi=100)
-                fig.patch.set_facecolor('white')
-                fig.subplots_adjust(
-                    left=0.125, right=0.9,
-                    bottom=0.11, top=0.88
-                )
-
-                ind = np.arange(len(date_list))
-                width = 0.6
-
-                ax.bar(
-                    ind, settle_count,
-                    width=width, align='edge',
-                    color='r', edgecolor='none', linewidth=0
-                )
-
-                ax.set_xticks(ind + width / 2.0)
-                ax.set_xticklabels(date_list)
-                ax.set_yticks(np.arange(0, upper + 1, tick_step))
-                ax.set_ylim(0, upper)
-
-                ax.set_xlabel('day(dd)')
-                ax.set_ylabel('settle count(record)')
-                ax.grid(
-                    True, axis='both',
-                    color='#b0b0b0', linestyle='-', linewidth=0.8
-                )
-
-                fig.savefig(
-                    png_file_name, dpi=100, facecolor='white'
-                )
-                plt.close(fig)
+python manage.py shell -c "from django.db import connection; c=connection.cursor(); c.execute('SELECT USER, SYS_CONTEXT(''USERENV'',''DB_NAME''), SYS_CONTEXT(''USERENV'',''SERVICE_NAME'') FROM DUAL'); print(c.fetchone()); c.close()"
