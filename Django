@@ -4,7 +4,36 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-Test-NetConnection 192.168.50.234 -Port 8000
+from matplotlib.ticker import MaxNLocator
 
 
-New-NetFirewallRule -DisplayName "LCMonitor Test TCP 8000" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000 -RemoteAddress LocalSubnet -Profile Domain,Private
+            peak = max(settle_count)
+            upper = max(1.0, float(peak) * 1.15)
+
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ind = np.arange(len(date_list))
+
+            ax.bar(ind, settle_count, width=0.65, color='#4472C4')
+            ax.set_xticks(ind)
+            ax.set_xticklabels(date_list)
+            ax.set_xlabel('day(dd)')
+            ax.set_ylabel('settle count(record)')
+            ax.set_ylim(0, upper)
+            ax.yaxis.set_major_locator(
+                MaxNLocator(nbins=6, integer=True)
+            )
+            ax.set_axisbelow(True)
+            ax.grid(axis='y', alpha=0.3)
+
+            fig.tight_layout()
+            fig.savefig(png_file_name)
+            plt.close(fig)
+
+
+SELECT SUBSTR(settle_date, 1, 6) AS target_month,
+       COUNT(*) AS row_count,
+       COUNT(DISTINCT settle_date) AS day_count,
+       COUNT(DISTINCT corp_code) AS corp_count
+FROM tb_settle_hozon
+GROUP BY SUBSTR(settle_date, 1, 6)
+ORDER BY target_month;
