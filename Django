@@ -4,13 +4,46 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-legacy_radio.html
-<ul{% include "django/forms/widgets/attrs.html" %}>
-{% for group, options, index in widget.optgroups %}
-  {% for option in options %}
-    <li>{% include option.template_name with widget=option %}</li>
-  {% endfor %}
-{% endfor %}
-</ul>
+            peak = int(max(settle_count))
 
-widget=LegacyListRadioSelect
+            # Keep the original upper-limit and tick rules.
+            target_company = 5000 if cd['corp'] == 'all' else 50
+            upper = (peak // target_company + 1) * target_company
+
+            max_y = 10 ** len(str(peak))
+            divisor = 20 if str(peak)[0] > '5' else 40
+            tick_step = max(1, max_y // divisor)
+
+            with plt.style.context('classic'):
+                fig, ax = plt.subplots(figsize=(9, 9), dpi=80)
+                fig.patch.set_facecolor('white')
+                fig.subplots_adjust(
+                    left=0.125, right=0.9,
+                    bottom=0.1, top=0.9
+                )
+
+                ind = np.arange(len(date_list))
+                width = 0.6
+
+                ax.bar(
+                    ind, settle_count,
+                    width=width, align='edge',
+                    color='r', edgecolor='k', linewidth=0.5
+                )
+
+                ax.set_xticks(ind + width / 2.0)
+                ax.set_xticklabels(date_list)
+                ax.set_yticks(np.arange(0, max_y, tick_step))
+                ax.set_ylim(0, upper)
+
+                ax.set_xlabel('day(dd)')
+                ax.set_ylabel('settle count(record)')
+                ax.grid(
+                    True, axis='both',
+                    color='0.5', linestyle=':', linewidth=0.5
+                )
+
+                fig.savefig(
+                    png_file_name, dpi=80, facecolor='white'
+                )
+                plt.close(fig)
