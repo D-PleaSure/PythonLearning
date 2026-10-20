@@ -5,10 +5,20 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 @'
-from django.db import connection
-with connection.cursor() as c:
-    c.execute("SELECT USER, SYS_CONTEXT('USERENV','DB_NAME'), SYS_CONTEXT('USERENV','SERVICE_NAME') FROM DUAL")
-    print(c.fetchone())
-    c.execute("SELECT 1 FROM TB_SETTLE_HOZON WHERE ROWNUM = 1")
-    print(c.fetchone())
-'@ | python manage.py shell -i python
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+import mysite.oracle_client as oc
+
+env_file = Path.cwd() / ".env.development.local"
+print("env file:", env_file, "exists:", env_file.exists())
+print("user before loading:", repr(os.environ.get("LCMONITOR_ORACLE_USER")))
+load_dotenv(env_file, override=False)
+
+actual = os.environ.get("LCMONITOR_ORACLE_USER", "")
+expected = oc.LOCAL_DEVELOPMENT_USER
+print("loaded Python file:", oc.__file__)
+print("actual user:", repr(actual))
+print("expected user:", repr(expected))
+print("match:", actual.strip().upper() == expected)
+'@ | python -
