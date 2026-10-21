@@ -4,7 +4,71 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-Remove-Item Env:LCMONITOR_ORACLE_CLIENT_LIB_DIR -ErrorAction SilentlyContinue
-.\.venv\Scripts\python.exe -u -c "import faulthandler,runpy,sys; faulthandler.dump_traceback_later(30,repeat=True); sys.argv=['manage.py','runserver','127.0.0.1:8002','--noreload']; runpy.run_path('manage.py',run_name='__main__')"
-print("80% query START:", day, flush=True)
-print("80% query END:", day, flush=True)
+SELECT
+    SYSTIMESTAMP AS sampled_at,
+    s.sid,
+    s.serial#,
+    s.username,
+    s.machine,
+    s.program,
+    s.module,
+    s.status,
+    s.sql_id,
+    s.sql_child_number,
+    s.sql_exec_start,
+    ROUND((SYSDATE - s.sql_exec_start) * 86400) AS sql_elapsed_seconds,
+    s.state,
+    s.event,
+    s.wait_class,
+    s.seconds_in_wait,
+    s.blocking_session_status,
+    s.blocking_instance,
+    s.blocking_session,
+    q.plan_hash_value,
+    q.sql_text
+FROM v$session s
+JOIN v$sql q
+  ON q.sql_id = s.sql_id
+ AND q.child_number = s.sql_child_number
+WHERE s.type = 'USER'
+  AND s.status = 'ACTIVE'
+  AND s.sid <> TO_NUMBER(SYS_CONTEXT('USERENV', 'SID'))
+  AND UPPER(q.sql_text) LIKE '%TB_SETTLE_HOZON%'
+  AND UPPER(q.sql_text) LIKE '%MAX(AMEND_TIME)%'
+ORDER BY s.sql_exec_start;
+
+
+
+SELECT plan_table_output
+FROM TABLE(
+    DBMS_XPLAN.DISPLAY_CURSOR(
+        '替换为SQL_ID',
+        0,
+        'ALLSTATS LAST +PREDICATE +ALIAS'
+    )
+);
+
+
+
+
+SELECT
+    SYSTIMESTAMP AS sampled_at,
+    sid,
+    serial#,
+    username,
+    machine,
+    program,
+    status,
+    sql_id,
+    sql_child_number,
+    prev_sql_id,
+    state,
+    event,
+    wait_class,
+    blocking_session_status,
+    blocking_session
+FROM v$session
+WHERE type = 'USER'
+  AND username = SYS_CONTEXT('USERENV', 'SESSION_USER')
+  AND sid <> TO_NUMBER(SYS_CONTEXT('USERENV', 'SID'))
+ORDER BY status, machine, sid;
