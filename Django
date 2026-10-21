@@ -5,6 +5,4 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 Remove-Item Env:LCMONITOR_ORACLE_CLIENT_LIB_DIR -ErrorAction SilentlyContinue
-
-
-python -u -c "import faulthandler,runpy,sys; faulthandler.dump_traceback_later(30,repeat=True); sys.argv=['manage.py','runserver','127.0.0.1:8001','--noreload']; runpy.run_path('manage.py',run_name='__main__')"
+.\.venv\Scripts\python.exe -u -c "import faulthandler,runpy,sys; faulthandler.dump_traceback_later(30,repeat=True); sys.argv=['manage.py','runserver','127.0.0.1:8002','--noreload']; runpy.run_path('manage.py',run_name='__main__')"
