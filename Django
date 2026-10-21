@@ -5,20 +5,14 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 SELECT
-    i.owner AS index_owner,
-    i.table_owner,
-    i.index_name,
-    i.index_type,
-    i.status,
-    i.visibility,
-    c.column_position,
-    c.column_name,
-    c.descend,
-    i.num_rows,
-    i.last_analyzed
-FROM all_indexes i
-JOIN all_ind_columns c
-  ON c.index_owner = i.owner
- AND c.index_name = i.index_name
-WHERE i.table_name = 'TB_SETTLE_HOZON'
-ORDER BY i.table_owner, i.index_name, c.column_position;
+    index_owner,
+    index_name,
+    table_owner,
+    table_name,
+    column_position,
+    column_expression
+FROM all_ind_expressions
+WHERE table_owner = 'LCMONITOR2'
+  AND table_name = 'TB_SETTLE_HOZON'
+  AND index_name = 'TB_SETTLE_HOZON_IDX_2'
+ORDER BY column_position;
