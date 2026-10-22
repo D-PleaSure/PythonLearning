@@ -4,50 +4,16 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-class SettleCountDetailForm(TargetMonthForm):
-    deal = forms.ChoiceField(
-        label='業務',
-        choices=[
-            (1, '当預'),
-            (2, '内為'),
-            (3, '国債'),
-            (4, '担保'),
-            (5, '外為'),
-            (6, '社債'),
-        ],
-        widget=forms.RadioSelect(
-            attrs={'class': 'settle-detail-radio'}
-        ),
-        initial=1,
-    )
 
-    count_or_amount = forms.ChoiceField(
-        label='件数/金額',
-        choices=[
-            (1, '件数'),
-            (2, '金額'),
-        ],
-        widget=forms.RadioSelect(
-            attrs={'class': 'settle-detail-radio'}
-        ),
-        initial=1,
-    )
-
-
-
-<style type="text/css">
-    …………
-</style>
-
-
-/* 04画面：業務・件数/金額のラジオボタン */
-#form_div .settle-detail-radio {
+#form_div div#id_deal.settle-detail-radio,
+#form_div div#id_count_or_amount.settle-detail-radio {
     display: block;
     margin: 0;
     padding: 0 0 0 40px;
 }
 
-#form_div .settle-detail-radio > div {
+#form_div div#id_deal.settle-detail-radio > div,
+#form_div div#id_count_or_amount.settle-detail-radio > div {
     display: list-item;
     list-style-type: circle;
     list-style-position: outside;
