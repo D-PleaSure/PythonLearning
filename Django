@@ -5,18 +5,6 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-#form_div div#id_deal.settle-detail-radio,
-#form_div div#id_count_or_amount.settle-detail-radio {
-    display: block;
-    margin: 0;
-    padding: 0 0 0 40px;
-}
-
-#form_div div#id_deal.settle-detail-radio > div,
-#form_div div#id_count_or_amount.settle-detail-radio > div {
-    display: list-item;
-    list-style-type: circle;
-    list-style-position: outside;
-    margin: 0;
-    padding: 0;
-}
+Djangoのバージョンアップに伴い、RadioSelectの標準出力構造がul/liからdiv/divへ変更され、04「業務別決済件数一覧」画面のラジオボタンのインデントに現行との差異が生じた。
+現行レイアウトを維持するため、forms.pyで対象ウィジェットに専用CSSクラスを付与し、既存のbase.htmlに対象を限定したスタイルを追加した。
+HTMLファイルの新規追加およびHTMLタグ構造の変更は行わず、選択値・初期値・入力チェック・業務処理への変更はない。
