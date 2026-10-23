@@ -5,6 +5,8 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-Get-ChildItem -LiteralPath . -Recurse -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -in @('bg.gif', 'asc.gif', 'desc.gif') } |
-    Select-Object Name, FullName
+Get-ChildItem -LiteralPath . -Recurse -File -Filter urls.py |
+    Select-String -Pattern 'gif|document_root|static' -Context 3,3
+
+Get-ChildItem -LiteralPath . -Recurse -File -Filter *.py |
+    Select-String -Pattern 'GIF_ROOT' -Context 2,2
