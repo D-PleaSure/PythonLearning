@@ -5,6 +5,6 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-Djangoのバージョンアップに伴い、RadioSelectの標準出力構造がul/liからdiv/divへ変更され、04「業務別決済件数一覧」画面のラジオボタンのインデントに現行との差異が生じた。
-現行レイアウトを維持するため、forms.pyで対象ウィジェットに専用CSSクラスを付与し、既存のbase.htmlに対象を限定したスタイルを追加した。
-HTMLファイルの新規追加およびHTMLタグ構造の変更は行わず、選択値・初期値・入力チェック・業務処理への変更はない。
+Get-ChildItem -LiteralPath . -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -in @('bg.gif', 'asc.gif', 'desc.gif') } |
+    Select-Object Name, FullName
