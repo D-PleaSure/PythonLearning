@@ -5,4 +5,5 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-="rm -f -- """&H2&""""
+find /home/oracle/tool/f_o2o /opt/home/oracle/tool/f_o2o \
+-type d -name 'VER22.11*' -print
