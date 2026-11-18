@@ -5,4 +5,4 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-=IF(MID(A2,3,1)<>"w","chmod u+w -- """&H2&"""","")
+="chmod u+w "&LEFT(H2,FIND("@",SUBSTITUTE(H2,"/","@",LEN(H2)-LEN(SUBSTITUTE(H2,"/",""))))-1)
