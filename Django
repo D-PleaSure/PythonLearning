@@ -5,8 +5,11 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-Get-ChildItem -LiteralPath . -Recurse -File -Filter urls.py |
-    Select-String -Pattern 'gif|document_root|static' -Context 3,3
-
-Get-ChildItem -LiteralPath . -Recurse -File -Filter *.py |
-    Select-String -Pattern 'GIF_ROOT' -Context 2,2
+find /opt/home/oracle/tool/f_o2o /home/oracle/tool/f_o2o \
+-type f -name "*.dmp*" \
+! -newermt "2024-01-01" \
+! -newermt "2023-12-31 23:59:59" \
+-printf '%T@ %p\0' | sort -z -n | \
+cut -z -d' ' -f2- | \
+xargs -0 -r ls -ldU --time-style=long-iso \
+> /tmp/dmp_delete_list.txt
