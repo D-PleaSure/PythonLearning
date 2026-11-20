@@ -5,6 +5,19 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-? inCnt
-? "[" & inDtoInfo(0) & "]"
-? "[" & inDtoInfo(4) & "]"
+For j = 0 To inCnt - 1
+    Dim AR_TEMP As Variant
+
+    If Len(Trim$(DtoInfo(j))) = 0 Then
+        Debug.Print "DTOデータが空です。j=" & j
+        GoTo NextDto
+    End If
+
+    AR_TEMP = Split(DtoInfo(j), ",")
+
+    If UBound(AR_TEMP) < 1 Then
+        Debug.Print "DTOデータ形式不正。j=" & j
+        GoTo NextDto
+    End If
+
+    If CStr(AR_TEMP(0)) = "" Or CStr(AR_TEMP(1)) = "" Then
