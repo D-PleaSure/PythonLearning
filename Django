@@ -5,8 +5,4 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-find /opt/home/oracle/tool/f_o2o /home/oracle/tool/f_o2o \
--type f -name "*.dmp*" \
-! -newermt "2024-01-01" \
--printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' \
-> /tmp/dmp_remaining_check.txt
+For j = 0 To 4: Debug.Print j, "[" & dtoInfo(j) & "]": Next j
