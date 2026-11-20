@@ -5,19 +5,27 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
+' List変数初期化用
+Dim sListClassArr As String
+sListClassArr = ""
+
 For j = 0 To inCnt - 1
     Dim AR_TEMP As Variant
 
+    ' DTO情報が空の場合は次のデータへ
     If Len(Trim$(DtoInfo(j))) = 0 Then
-        Debug.Print "DTOデータが空です。j=" & j
+        Debug.Print "DTO情報が空です。j=" & j
         GoTo NextDto
     End If
 
     AR_TEMP = Split(DtoInfo(j), ",")
 
-    If UBound(AR_TEMP) < 1 Then
-        Debug.Print "DTOデータ形式不正。j=" & j
+    ' DTO情報の項目数が不足している場合
+    If UBound(AR_TEMP) < 3 Then
+        Debug.Print "DTO情報の項目数不足。j=" & j
         GoTo NextDto
     End If
 
-    If CStr(AR_TEMP(0)) = "" Or CStr(AR_TEMP(1)) = "" Then
+    If CStr(AR_TEMP(0)) = "-" Or CStr(AR_TEMP(1)) = "-" Then
+        ' /* あり得ないケース、処理なし */
+    ElseIf CStr(AR_TEMP(3)) = "Dto" Then
