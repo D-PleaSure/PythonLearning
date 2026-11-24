@@ -4,4 +4,7 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-? "[" & sheetName & "]"
+? sheetName
+? idxRow
+? inCnt
+? "[" & inDtoInfo(inCnt) & "]"
