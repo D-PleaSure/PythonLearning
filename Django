@@ -4,6 +4,6 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-(this.getClass().getSimpleName().equals("OutDto_open_lst_dw_1_kes_dtl")
-|| this.getClass().getSimpleName().equals("OutDto_open_lst_dw_1_tap_dtl"))
-&& ("k104".equals(id) || "k105".equals(id))
+getItem() メソッドは複数箇所から呼び出されているため、個別にブレークポイントを設定するのではなく、共通の呼び出し先である DtoBase.java の getItem() メソッドに条件付きブレークポイントを設定しました。
+
+対象の2つのDTO、かつアイテムIDがk104またはk105の場合のみ停止するように設定し、今回の画面操作で該当するアイテム定義が参照されるかを確認します。
