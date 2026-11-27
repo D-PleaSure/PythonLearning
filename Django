@@ -6,14 +6,8 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-① result.toString().contains("appl_data_75")
+アイテム定義重複による影響範囲の追加確認
 
-ログ出力用の文字列に appl_data_75 が含まれているかを確認する。
-
-② result.toString().indexOf("appl_data_76") != result.toString().lastIndexOf("appl_data_76")
-
-ログ出力用の文字列に appl_data_76 が重複して含まれているかを確認する。
-
-確認結果：
-
-①が false、②が true となったため、ログ出力用の文字列において、appl_data_75 が欠落し、appl_data_76 が重複していることを確認した。
+CLOB分割処理におけるnull発生有無の確認
+アイテム定義重複によるログ出力への影響確認
+決済済データ（kes）および日銀受信電文（tap）におけるアイテムID参照箇所の確認
