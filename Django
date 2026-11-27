@@ -4,376 +4,244 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-我把这次从 DTO 定义错误、SQL 抽出条件，到日志输出调查过程中用到的 STS（Eclipse）Debug 快捷键、表达式（式）、条件断点及调查技巧整理一下。以后调查其他功能时也可以直接参照。
 
-一、常用快捷键
+# STS / Eclipse Debug 实用速查手册（中日对照）
 
-Debug 调试
+> 适用范围：Java、STS/Eclipse。以 DTO、SQL、日志调查为例。快捷键以 Windows 默认键位为准，自定义键位或版本可能不同。
 
-快捷键	日文名称	作用
-F5	ステップ・イン	进入当前行调用的方法内部
-F6	ステップ・オーバー	执行当前行，不进入方法内部
-F7	ステップ・リターン	执行完当前方法，返回调用方
-F8	再開	继续运行，直到下一个断点或当前请求结束
-Ctrl + Shift + B	ブレークポイントの切り替え	设置或取消断点
+## 1. Debug 快捷键（デバッグ操作）
 
-源码调查
+| 快捷键 | 日文名称 | 目的（中文） | 目的（日本語） | 实用例子 |
+|---|---|---|---|---|
+| `F5` | ステップ・イン | 进入方法内部 | 呼び出し先のメソッドに入る | 进入 `dto.getItem(id)` |
+| `F6` | ステップ・オーバー | 单步执行，不进入方法 | メソッドの内部に入らず、次の行へ進む | 执行 `map.put(key,value)` 后确认 Map |
+| `F7` | ステップ・リターン | 执行完当前方法并返回 | 現在のメソッドから呼び出し元に戻る | 从 `getItem()` 返回调用方 |
+| `F8` | 再開 | 继续运行至下一个断点或程序继续正常执行 | 次のブレークポイントまで処理を再開する | 确认目标方法是否再次被调用 |
+| `Ctrl + Shift + B` | ブレークポイントの切り替え | 设置或取消断点 | ブレークポイントを設定・解除する | 在 SQL 执行前设置断点 |
 
-快捷键	作用
-Ctrl + 鼠标点击	跳转到变量或方法的定义
-Ctrl + Shift + G	搜索变量或方法的所有引用
-Ctrl + Shift + T	根据 Java 类名查找文件，包括 JAR 中的类
-Ctrl + Shift + R	根据文件名查找资源文件，例如 XML、YAML
-Ctrl + L	跳转到指定行号
-Ctrl + F	当前文件内搜索
-Ctrl + H	整个工程或工作空间内搜索
-Ctrl + O	查看当前类中的方法及变量列表
-Alt + ←	返回上一个代码浏览位置
-Alt + →	前往下一个代码浏览位置
+## 2. 源码调查快捷键（ソースコード調査）
 
-Chrome 前端 Debug
+| 快捷键 | 目的（中文） | 目的（日本語） | 实用例子 |
+|---|---|---|---|
+| `Ctrl + 点击` / `F3` | 跳转到定义 | 宣言元・定義元へ移動する | 查看 `getItem()` 的实现 |
+| `Ctrl + Shift + G` | 查找工作空间内的引用 | ワークスペース内の参照箇所を検索する | 查找 `getItem()` 的调用位置 |
+| `Ctrl + Shift + T` | 按 Java 类型名查找 | Javaの型名で検索する | 查找 `DtoBase` |
+| `Ctrl + Shift + R` | 按资源文件名查找 | リソース名で検索する | 查找 `logback.xml` |
+| `Ctrl + H` | 打开搜索窗口 | 検索ダイアログを開く | 全工程搜索 `appl_data_75` |
+| `Ctrl + F` | 当前文件内查找 | ファイル内の文字列を検索する | 查找 `setItem` |
+| `Ctrl + L` | 跳转到行号 | 指定行へ移動する | 跳到第145行 |
+| `Ctrl + O` | 查看当前类成员 | クイック・アウトラインを表示する | 查找 `toIFShortString()` |
+| `Alt + ←` / `Alt + →` | 返回／前往浏览位置 | ナビゲーション履歴を戻る・進む | 在定义与调用方之间切换 |
 
-快捷键	作用
-F12	打开浏览器开发者工具
-F8	恢复 JavaScript 执行
-F10	单步执行，不进入方法
-F11	进入方法内部
-Shift + F11	执行完当前方法并返回
+## 3. 表达式（式／Expressions）
 
-如果 JavaScript 异常被 try...catch 捕获，Console 中没有报错，可以在 Sources 中勾选 Pause on caught exceptions，定位实际发生异常的代码。
+在 Debug 暂停状态下，打开「式」窗口，添加以下 Java 表达式。若未显示该窗口，可通过 Window → Show View → Expressions 打开（日文界面：ウィンドウ → ビューの表示 → 式；必要时从「その他」选择）。
 
-二、常用 Debug 表达式（式）
+以下 `obj`、`str`、`map` 等为示例变量名，请替换为当前作用域中的实际变量。除明确支持 null 的表达式外，调用对象方法前须确认对象非 null。
 
-在 STS 的「式（Expressions）」窗口中添加表达式，可以在不修改源码的情况下确认运行时的数据。
+### 3.1 对象、NULL、字符串（オブジェクト・文字列の確認）
 
-1. 对象及数据类型确认
+| 表达式 | 目的（中文） | 目的（日本語） |
+|---|---|---|
+| `obj.getClass().getSimpleName()` | 确认实际类名 | 実際のクラス名を確認する |
+| `obj.getClass().getName()` | 确认完整类名（含包名） | パッケージ名を含む完全修飾クラス名を確認する |
+| `value == null` | 判断是否为 null | NULLかどうかを確認する |
+| `"".equals(value)` | 安全判断是否为空字符串 | 空文字かどうかを確認する（NULLでも例外にならない） |
+| `java.util.Objects.equals(a,b)` | 安全比较两个对象的值（Java 7+） | NULLを考慮して値の一致を確認する |
+| `str.length()` | 确认字符串长度（UTF-16代码单元数） | 文字列の長さを確認する（バイト数ではない） |
+| `str.contains("ABC")` | 判断是否包含指定内容 | 指定文字列が含まれるか確認する |
+| `str.indexOf("ABC")` | 第一次出现位置，不存在返回 -1 | 最初の出現位置を確認する（存在しない場合は-1） |
+| `str.lastIndexOf("ABC")` | 最后一次出现位置 | 最後の出現位置を確認する |
+| `str.indexOf("ABC") != str.lastIndexOf("ABC")` | 判断指定内容是否重复出现 | 指定文字列が複数回出現するか確認する |
+| `str.startsWith("ABC")` | 判断是否以指定内容开头 | 指定文字列で始まるか確認する |
+| `str.endsWith("ABC")` | 判断是否以指定内容结尾 | 指定文字列で終わるか確認する |
 
-this.getClass().getSimpleName()
+实用例（実用例）：
 
-确认当前对象的类名，例如是 kes DTO 还是 tap DTO。
-
-this.getClass().getName()
-
-确认当前对象的完整类名，包括 Package。
-
-logger.getClass().getName()
-
-确认实际使用的日志框架实现类。
-
-value == null
-
-确认变量是否为 null。
-
-value.equals(””)
-
-确认变量是否为空字符串，前提是 value 不为 null。
-
-“”.equals(value)
-
-安全地判断是否为空字符串，即使 value 为 null 也不会报错。
-
-2. Map、List、数组的数据确认
-
-map.get(“key”)
-
-根据 Key 取得 Map 中的实际数据。
-
-map.containsKey(“key”)
-
-确认 Map 中是否存在指定的 Key。
-
-map.keySet()
-
-确认 Map 中所有的 Key。
-
-map.size()
-
-确认 Map 中有多少条数据。
-
-list.get(0)
-
-取得 List 中的第一条数据。
-
-list.size()
-
-确认 List 的数据件数。
-
-appl_data_array74
-
-确认数组中的第75项数据，数组下标从0开始。
-
-appl_data_array.length
-
-确认数组长度。
-
-java.util.Arrays.toString(argument)
-
-将整个数组转换成字符串，方便确认SQL绑定参数。
-
-3. 字符串内容确认
-
-这次调查日志重复及缺失问题时，这几个表达式特别实用。
-
-str.length()
-
-确认字符串的长度，Java String 的长度不等于字节数。
-
-str.contains(“ABC”)
-
-确认字符串中是否包含指定内容。
-
-str.indexOf(“ABC”)
-
-确认指定内容第一次出现的位置，不存在时返回-1。
-
-str.lastIndexOf(“ABC”)
-
-确认指定内容最后一次出现的位置。
-
-str.indexOf(“ABC”) != str.lastIndexOf(“ABC”)
-
-确认指定内容是否出现多次。
-
-str.startsWith(“ABC”)
-
-确认字符串是否以指定内容开头。
-
-str.endsWith(“ABC”)
-
-确认字符串是否以指定内容结尾。
-
-str1.equals(str2)
-
-确认两个字符串的内容是否一致，前提是str1不为null。
-
-本次实际使用的例子：
-
+```java
 result.toString().contains("appl_data_75")
+result.toString().indexOf("appl_data_76") != result.toString().lastIndexOf("appl_data_76")
+```
 
-确认日志生成内容中是否包含第75项。
+- 中文：确认第75项是否存在，以及第76项是否重复。此次调查的结果分别为 `false`、`true`。
+- 日本語：75項目目の有無と76項目目の重複を確認する。今回の調査結果はそれぞれ `false`、`true`。
+- 注意：应限定在同一条 DTO 记录内，避免多条记录或字段值中出现同名字符串造成误判。
 
-result.toString().indexOf("appl_data_76")
-!= result.toString().lastIndexOf("appl_data_76")
+### 3.2 Map、List、Array（コレクション・配列の確認）
 
-确认日志生成内容中第76项是否重复出现。
+| 表达式 | 目的（中文） | 目的（日本語） |
+|---|---|---|
+| `map.get("key")` | 取得指定 Key 对应的数据 | 指定キーに対応する値を取得する |
+| `map.containsKey("key")` | 判断 Key 是否存在 | 指定キーの有無を確認する |
+| `map.keySet()` | 确认所有 Key | 全キーを確認する |
+| `map.size()` / `list.size()` | 确认数据件数 | データ件数を確認する |
+| `list.get(0)` | 取得第一条数据 | 先頭のデータを取得する |
+| `array[74]` | 取得第75项 | 75番目の要素を取得する |
+| `array.length` | 确认数组长度 | 配列の要素数を確認する |
+| `java.util.Arrays.toString(array)` | 查看数组全部元素 | 配列の全要素を文字列で確認する |
 
-三、DTO 调查时使用的表达式
+注意：Java 的数组和 List 下标从 0 开始。`Map.get()` 返回 null 时，可能是 Key 不存在，也可能是值为 null，可用 `containsKey()` 区分。
 
-以下是结合你们项目共通框架使用的表达式，并不是所有 Java 工程都具有这些方法。
+### 3.3 DTO 调查（DTOの調査）——本项目专用
 
-mapDto.getItem(“k104”).name
+| 表达式 | 目的（中文） | 目的（日本語） |
+|---|---|---|
+| `mapDto.getItem("k104").name` | 确认 ID 对应的项目名 | アイテムIDに対応する項目名を確認する |
+| `mapDto.getItemByName("appl_data_75")` | 确认指定名称的项目定义 | 項目名に対応するアイテム定義を確認する |
+| `mapDto.get("appl_data_75")` | 确认实际数据 | 実際のデータ値を確認する |
+| `mapDto.getItemIds()` | 确认所有项目 ID | 全アイテムIDを確認する |
+| `mapDto.toMap()` | 确认 DTO 内的实际数据 Map | DTO内のデータMapを確認する |
+| `java.util.Objects.equals(appl_data_array[74], mapDto.get("appl_data_75"))` | 比较赋值前后的数据 | DTOへの設定前後で値が一致するか確認する |
 
-根据项目ID确认对应的变量名。
+本次调查中三种 Map 的区别：
 
-mapDto.getItemByName(“appl_data_75”)
+| Map | Key | 管理内容（中文 / 日本語） |
+|---|---|---|
+| `itemMap` | ID | 项目定义 / アイテム定義 |
+| `itemNameMap` | name | 项目定义 / アイテム定義 |
+| `dataMap` | name | 实际数据 / 実データ |
 
-根据变量名确认项目定义是否存在。
+### 3.4 SQL 调查（SQLの調査）
 
-mapDto.get(“appl_data_75”)
+| 表达式 | 目的（中文） | 目的（日本語） |
+|---|---|---|
+| `select_stmt` | 确认最终 SQL | 最終的なSQL文を確認する |
+| `selSqlStr.toString()` | 查看拼接后的 SQL | 組み立てたSQL文を確認する |
+| `argument` | 确认绑定参数 | バインドパラメータを確認する |
+| `java.util.Arrays.toString(argument)` | 一次查看全部绑定参数（数组时） | 全バインドパラメータを確認する |
+| `((String) argument[1]).length()` | 确认第二个字符串参数的长度 | 2番目の文字列パラメータの長さを確認する |
 
-直接确认dataMap中的实际数据。
+实用例：在 SQL 执行前设置断点，取得 SQL 和绑定参数，再在 SQL Developer 中验证查询条件。变量名及执行位置以实际代码为准。
 
-mapDto.getItemIds()
+### 3.5 日志调查（ログの調査）
 
-取得DTO中所有的项目ID。
+| 表达式 | 目的（中文） | 目的（日本語） |
+|---|---|---|
+| `logMsg` | 确认日志内容 | ログメッセージの内容を確認する |
+| `level` | 确认本项目的日志等级代码 | ログレベルのコードを確認する |
+| `logger.getName()` | 确认 Logger 名称 | ロガー名を確認する |
+| `logger.isInfoEnabled()` | 确认 INFO 是否启用 | INFOレベルが有効か確認する |
+| `logger.isDebugEnabled()` | 确认 DEBUG 是否启用 | DEBUGレベルが有効か確認する |
+| `logger.isErrorEnabled()` | 确认 ERROR 是否启用 | ERRORレベルが有効か確認する |
+| `logger.getClass().getResource("/logback.xml")` | 查找 classpath 中的日志配置资源 | クラスパス上のログ設定ファイルを探す |
+| `System.getProperty("user.dir")` | 确认当前工作目录 | カレントディレクトリを確認する |
+| `System.getProperty("logback.configurationFile")` | 确认是否由系统属性指定配置文件 | システムプロパティによる設定ファイル指定を確認する |
+| `cachedLogMsgs.get().contains(logMsg)` | 确认目标日志是否在本项目内存缓存中 | 対象ログがメモリキャッシュに格納されているか確認する |
 
-mapDto.toMap()
+注意：Logger 启用 INFO 不代表一定写入文件；还需检查 Appender 的过滤条件及缓存输出触发条件。找到 classpath 资源也不一定证明它就是实际生效的配置。
 
-确认DTO中保存的实际数据Map。
+## 4. 条件断点（条件付きブレークポイント）
 
-appl_data_array74.equals(mapDto.get(“appl_data_75”))
+设置：右键断点 → Breakpoint Properties（ブレークポイント・プロパティー）→ 启用 Conditional（条件付き）→ 输入返回 boolean 的表达式。
 
-确认DTO赋值前后的数据是否一致，前提是数组元素不为null。
+### 4.1 按类名过滤（クラス名で絞り込む）
 
-这次调查中需要特别区分三个 Map：
+```java
+this.getClass().getSimpleName().equals("OutDto_open_lst_dw_1_kes_dtl")
+```
 
-Map	Key	管理内容
-itemMap	ID	项目定义
-itemNameMap	name	项目定义
-dataMap	name	实际数据
+- 中文：仅在目标 DTO 调用共通方法时停止。
+- 日本語：対象DTOから共通メソッドが呼び出された場合のみ停止する。
 
-四、SQL 调查时使用的表达式
+### 4.2 按项目 ID 过滤（アイテムIDで絞り込む）
 
-select_stmt
-
-取得最终拼接完成的SQL。
-
-selSqlStr.toString()
-
-取得StringBuilder中保存的SQL字符串。
-
-argument
-
-确认SQL的绑定参数。
-
-java.util.Arrays.toString(argument)
-
-一次性显示所有绑定参数。
-
-((String) argument1).length()
-
-区分参数是空字符串还是包含空格，前提是该参数为非null字符串。
-
-这次我们是在 DataObject.java 的以下处理处取得完整 SQL 的：
-
-cse.declare(select_stmt, argument);
-cse.execute();
-
-以后如果画面数据抽不出来，可以优先寻找 SQL执行之前的位置，取得完整SQL和实际绑定参数，再到 SQL Developer 中确认抽出条件。
-
-五、日志调查时使用的表达式
-
-logMsg
-
-确认最终准备输出的日志内容。
-
-level
-
-确认本次日志的级别代码。
-
-logger.getName()
-
-确认Logger名称，用于查找对应的日志配置。
-
-logger.isInfoEnabled()
-
-确认INFO级别是否开启。
-
-logger.isDebugEnabled()
-
-确认DEBUG级别是否开启。
-
-logger.isErrorEnabled()
-
-确认ERROR级别是否开启。
-
-logger.getClass().getResource(”/logback.xml”)
-
-查找classpath中的Logback配置文件位置。
-
-System.getProperty(“user.dir”)
-
-确认Java程序的当前工作目录。
-
-System.getProperty(“logback.configurationFile”)
-
-确认是否通过系统属性指定了日志配置文件。
-
-cachedLogMsgs.get().contains(logMsg)
-
-确认目标日志是否已经保存至本项目的内存缓存。
-
-注意：Logger 的 INFO 级别开启，并不代表 INFO 日志一定会写入文件，还要确认 Appender 的过滤级别及输出条件。
-
-六、条件断点（条件付きブレークポイント）
-
-这个是我觉得你以后工作中尤其值得经常使用的功能。共通方法被大量调用时，可以避免反复按 F8。
-
-设置方法：右键断点 → ブレークポイント・プロパティー → 勾选条件付き（Conditional）→ 输入判断表达式。
-
-① 仅在指定类被调用时停止
-
-this.getClass().getSimpleName()
-    .equals("OutDto_open_lst_dw_1_kes_dtl")
-
-作用：排除其他 DTO 对共通方法的调用。
-
-② 仅在指定 ID 被参照时停止
-
+```java
 "k104".equals(id) || "k105".equals(id)
+```
 
-作用：只调查目标项目，排除其他项目的处理。
+- 中文：仅调查 k104 或 k105 的处理。
+- 日本語：k104またはk105の処理のみを調査する。
 
-③ 同时指定类名和 ID
+### 4.3 组合条件（複数条件の組み合わせ）
 
-这次调查中使用的完整条件：
+```java
+(this.getClass().getSimpleName().equals("OutDto_open_lst_dw_1_kes_dtl")
+ || this.getClass().getSimpleName().equals("OutDto_open_lst_dw_1_tap_dtl"))
+ && ("k104".equals(id) || "k105".equals(id))
+```
 
-(this.getClass().getSimpleName()
-    .equals("OutDto_open_lst_dw_1_kes_dtl")
-|| this.getClass().getSimpleName()
-    .equals("OutDto_open_lst_dw_1_tap_dtl"))
-&& ("k104".equals(id) || "k105".equals(id))
+- 中文：仅在 kes 或 tap DTO 的目标项目被参照时停止。
+- 日本語：決済済データまたは日銀受信電文の対象アイテムが参照された場合のみ停止する。
 
-作用：仅当 kes 或 tap 的 k104、k105 被参照时停止。
+### 4.4 按日志内容过滤（ログ内容で絞り込む）
 
-④ 排除已经调查过的调用路径
-
-!java.util.Arrays.toString(
-    Thread.currentThread().getStackTrace()
-).contains("IFDataNullReplaceUtil.replaceNull")
-
-作用：不再因为 replaceNull() 的调用而停止，继续调查其他调用路径。
-
-可以使用 && 将该条件追加到原来的条件断点中。
-
-⑤ 仅在日志包含指定内容时停止
-
+```java
 logMsg != null && logMsg.contains("appl_data_76")
+```
 
-作用：排除大量无关日志，只调查包含目标数据的日志。
+- 中文：仅在日志含目标字符串时停止。
+- 日本語：対象文字列を含むログの場合のみ停止する。
 
-七、调用堆栈（Call Stack／コールスタック）
+### 4.5 排除已调查路径（調査済みの呼び出し経路を除外する）
 
-这是这次调查中非常重要的一个技巧。
+```java
+!java.util.Arrays.toString(Thread.currentThread().getStackTrace())
+    .contains("IFDataNullReplaceUtil.replaceNull")
+```
 
-以本次实际调查的日志处理为例
+- 中文：排除调用堆栈中包含 `replaceNull()` 的路径，继续调查其他路径。
+- 日本語：`replaceNull()` を含む呼び出し経路を除外し、他の経路を調査する。
+- 注意：此条件会额外获取堆栈，可能影响调试性能；条件断点求值能力因环境而异。
 
-DtoBase.getItem()
+### 常用逻辑运算符（論理演算子）
 
-当前断点停止位置
+| 运算符 | 中文 | 日本語 | 例子 |
+|---|---|---|---|
+| `&&` | 并且 | かつ | `a != null && a.contains("X")` |
+| `\|\|` | 或者 | または | `"A".equals(id) \|\| "B".equals(id)` |
+| `!` | 取反 | 否定 | `!str.contains("X")` |
+| `==` / `!=` | 相等／不等（对象时比较引用） | 等しい／等しくない（オブジェクトの場合は参照比較） | `value == null` |
 
-DtoBase.toIFShortString()
+## 5. 调用堆栈（コールスタック）
 
-上一层调用方
+目的：确认当前方法由谁调用，追踪实际执行路径。
+目的（日本語）：現在のメソッドの呼び出し元を確認し、実際の処理経路を追跡する。
 
-DtoBase.dataToIFLogString()
+在「デバッグ」窗口选择上一层栈帧，可以查看调用方源码及当时的变量，不会继续执行程序。
 
-DtoBase.toIFLogString()
+本次日志调查路径（调用顺序）：
 
+```text
 BaseAction.outputDebugLog()
+  → DtoBase.toIFLogString()
+    → DtoBase.dataToIFLogString()
+      → DtoBase.toIFShortString()
+        → DtoBase.getItem()  ← 断点
+```
 
-日志输出处理
+| 想确认什么（中文） | 確認したいこと（日本語） | 使用方法 |
+|---|---|---|
+| 方法内部的实现 | メソッド内部の処理 | F5 / F3 |
+| 实际调用方 | 実際の呼び出し元 | Call Stack |
+| 可能的引用位置 | 参照箇所 | Ctrl + Shift + G |
+| 实际执行路径 | 実際に実行された経路 | 断点 / F8 |
+| 实际变量值 | 実際の変数値 | Expressions |
 
-在左侧「デバッグ」窗口双击任意一层调用堆栈，可以直接跳转到调用方的代码，并且不会让程序继续运行。
+## 6. 调查流程（調査の進め方）
 
-想调查什么	使用什么方法
-当前方法内部做了什么	F5
-谁调用了当前方法	Call Stack
-哪些地方可能调用当前方法	Ctrl + Shift + G
-哪些地方实际调用了当前方法	设置断点
-只有特定数据时才停止	条件断点
-当前变量的实际内容是什么	式（Expressions）
+1. 明确异常现象 / 不具合事象を明確にする。
+2. 查看方法定义 / メソッドの定義・実装を確認する。
+3. 搜索引用位置 / 参照箇所を検索する。
+4. 设置断点或条件断点 / ブレークポイントまたは条件付きブレークポイントを設定する。
+5. 确认实际数据及调用路径 / 実データと呼び出し経路を確認する。
+6. 区分源码、Debug、实际输出的确认结果 / ソース確認・デバッグ確認・実出力確認の結果を区別する。
 
-八、以后调查问题的通用思路
+## 7. 注意事项（注意事項）
 
-发现问题
+- 断点停在某行时，该行通常尚未执行。确认赋值后的结果时，先按 F6。/ 断点で停止した行は通常まだ実行されていない。設定後の値はF6で進めて確認する。
+- 断点没有停止，只能说明本次操作中没有命中。/ ブレークポイントに到達しなかった場合、今回の操作で到達しなかったことのみを示す。
+- 表达式窗口可以执行方法，避免调用 `put()`、`set()`、`add()` 等可能改变数据的方法。/ 式ビューではメソッドも実行できるため、データを変更する処理の実行に注意する。
+- 当前栈帧变化后，局部变量可能无法访问。/ スタックフレームが変わると、ローカル変数を参照できない場合がある。
 
-确定调查对象及异常现象
+## 8. Chrome 前端 Debug（参考）
 
-Ctrl + 点击
+| 快捷键 | 目的（中文） | 目的（日本語） |
+|---|---|---|
+| `F12` | 打开开发者工具 | デベロッパーツールを開く |
+| `F8` | 恢复 JavaScript 执行 | JavaScriptの実行を再開する |
+| `F10` | 单步跳过 | ステップ・オーバー |
+| `F11` | 进入方法 | ステップ・イン |
+| `Shift + F11` | 返回调用方 | ステップ・アウト |
 
-追踪方法定义，了解内部处理
-
-Ctrl + Shift + G
-
-调查引用位置及可能的影响范围
-
-设置普通或条件断点
-
-确认实际执行路径
-
-查看式及调用堆栈
-
-确认实际数据、调用方及影响
-
-整理调查结论
-
-区分源码确认、Debug确认及实机确认
-
-最后记住三个容易忽略的地方：
-
-* 按 F8 后，「式」的结果消失是正常的，因为当前方法的局部变量可能已经无法访问。
-* 断点没有停止，不代表该方法永远不会被调用，只能说明本次测试中未发现符合断点条件的调用。
-* 「式」窗口不仅可以读取数据，也可以执行方法。像 put()、set()、add() 这样的操作可能改变实际运行数据，调查时要谨慎使用。
-
+若 JavaScript 异常被 catch 捕获，可在 Sources 中启用 Pause on caught exceptions，定位异常发生处。/ 捕捉済み例外の発生箇所を調査する場合は、SourcesのPause on caught exceptionsを有効にする。
 如果只记最常用的几个，优先记住 F5、F6、F7、F8、Ctrl + 点击、Ctrl + Shift + G、条件断点和 Call Stack。 这几个基本就覆盖了我们这两天的大部分调查工作。
