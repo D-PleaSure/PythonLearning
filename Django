@@ -4,22 +4,5 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-ログ出力処理への影響確認
-DtoBase.java の toIFShortString() メソッドでは、アイテムIDを基にアイテム定義を取得し、ログ出力用の文字列を生成している。
-アイテム定義の重複により、appl_data_75 が欠落し、appl_data_76 が重複していることをデバッグにて確認した。
-また、logback.xml および MemoryCacheAppender.java、LogMemoryCacheManager.java の処理を確認した結果、当該ログはINFOレベルでメモリキャッシュに格納され、ERROR発生時にキャッシュログの出力処理が実行されることを確認した。
-結論：
-画面表示への影響はないが、ログ出力内容には影響があり、appl_data_75 の欠落および appl_data_76 の重複が発生する。
-なお、メモリキャッシュへの格納まではデバッグにて確認したが、実際のログファイルへの出力確認は未実施。
-
-
-System.getProperty("logback.configurationFile")
-System.getProperty("user.dir")
-System.getProperty("LOG_FILE")
-System.getProperty("LOG_PATH")
-logger.getClass().getResource("/logback.xml")
-logMsg.contains("appl_data_75")
-logMsg.indexOf("appl_data_76") != logMsg.lastIndexOf("appl_data_76")
-
-findstr /n /c:"appl_data_76" C:\opt\lcapl\islc2\log\istarlc_apl_cache.log
+当該ログはINFOレベルであり、通常のログファイル出力レベル（WARN以上）を満たさないため、今回の画面操作ではメモリキャッシュにのみ格納され、ログファイルには出力されない。実際のログファイルをgrep検索した結果、該当ログが存在しないことを確認した。
 
