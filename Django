@@ -20,3 +20,6 @@ System.getProperty("LOG_PATH")
 logger.getClass().getResource("/logback.xml")
 logMsg.contains("appl_data_75")
 logMsg.indexOf("appl_data_76") != logMsg.lastIndexOf("appl_data_76")
+
+findstr /n /c:"appl_data_76" C:\opt\lcapl\islc2\log\istarlc_apl_cache.log
+
