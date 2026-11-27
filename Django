@@ -4,7 +4,16 @@ http://192.168.50.234:8000/lcmonitor/index/
 http://127.0.0.1:8000/lcmonitor/index/
 
 
-result.toString().contains("appl_data_75")
 
-result.toString().indexOf("appl_data_76")
-!= result.toString().lastIndexOf("appl_data_76")
+
+① result.toString().contains("appl_data_75")
+
+ログ出力用の文字列に appl_data_75 が含まれているかを確認する。
+
+② result.toString().indexOf("appl_data_76") != result.toString().lastIndexOf("appl_data_76")
+
+ログ出力用の文字列に appl_data_76 が重複して含まれているかを確認する。
+
+確認結果：
+
+①が false、②が true となったため、ログ出力用の文字列において、appl_data_75 が欠落し、appl_data_76 が重複していることを確認した。
