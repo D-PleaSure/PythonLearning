@@ -9,3 +9,5 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 System.getProperty("logback.configurationFile")
 System.getProperty("user.dir")
+System.getProperty("LOG_FILE")
+System.getProperty("LOG_PATH")
