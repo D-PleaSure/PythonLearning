@@ -7,4 +7,5 @@ http://127.0.0.1:8000/lcmonitor/index/
 
 
 
-((ch.qos.logback.classic.Logger) logger).getLoggerContext().getLogger("ROOT").iteratorForAppenders()
+System.getProperty("logback.configurationFile")
+System.getProperty("user.dir")
